@@ -1,6 +1,8 @@
 package trace
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/wall/nanobot-eino/pkg/config"
@@ -38,4 +40,16 @@ func TestInit_EnabledValid(t *testing.T) {
 		t.Fatal("shutdown function should not be nil")
 	}
 	shutdown()
+}
+
+func TestStartSpan_EndSpan_NoPanic(t *testing.T) {
+	ctx := context.Background()
+	ctx = StartSpan(ctx, "test-span", map[string]any{"key": "value"})
+	EndSpan(ctx, map[string]any{"result": "ok"}, nil)
+}
+
+func TestEndSpan_WithError(t *testing.T) {
+	ctx := context.Background()
+	ctx = StartSpan(ctx, "test-span", nil)
+	EndSpan(ctx, nil, fmt.Errorf("test error"))
 }
