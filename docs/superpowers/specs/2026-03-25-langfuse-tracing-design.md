@@ -182,10 +182,10 @@ Agent.ChatStream(ctx, input)   ← ctx carries trace context
 
 | File | Change | Invasiveness |
 |------|--------|-------------|
-| `pkg/config/config.go` | Add `TracingConfig` field | Low (add field) |
-| `pkg/app/bootstrap.go` | Call `trace.Init()` at startup, inject shutdown into graceful shutdown | Low (~5 lines) |
+| `pkg/config/schema.go` | Add `TracingConfig` field to config schema | Low (add field) |
+| `cmd/nanobot/gateway.go` | Call `trace.Init()` in `runGateway()`, inject shutdown into graceful shutdown | Low (~5 lines) |
 | `pkg/app/runloop.go` | Inject trace context in `ConsumeInbound` entry | Low (~5 lines) |
-| `pkg/memory/consolidate.go` | Add `StartSpan/EndSpan` around consolidation LLM call | Low (~6 lines) |
+| `pkg/memory/consolidator.go` | Add `StartSpan/EndSpan` around consolidation LLM call | Low (~6 lines) |
 | `go.mod` | Add `eino-ext/callbacks/langfuse` dependency | 1 line |
 | **All other files** | **No changes** | **Zero** |
 
