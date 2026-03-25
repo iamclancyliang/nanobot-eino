@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/glamour"
-	_ "github.com/cloudwego/eino-ext/callbacks/langfuse"
 	"github.com/peterh/liner"
 	"github.com/spf13/cobra"
 	"github.com/wall/nanobot-eino/pkg/agent"
