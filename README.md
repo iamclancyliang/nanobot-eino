@@ -1,10 +1,10 @@
 # Nanobot-Eino
 
-Go 语言重写的个人 AI 助手，基于 [Cloudwego Eino](https://github.com/cloudwego/eino) 框架，复刻 [nanobot](https://github.com/openclaw/openclaw) 的核心架构。
+基于 Golang 和 [Cloudwego Eino](https://github.com/cloudwego/eino) 框架的 AI Agent 个人助手。
 
 ---
 
-## 特性
+## 功能概览
 
 - **ReAct Agent Loop** — 基于 Eino React Agent 实现多步推理 + 工具调用循环
 - **持久化记忆** — Token 感知的自动记忆整理，MEMORY.md + HISTORY.md 双层存储
@@ -13,7 +13,7 @@ Go 语言重写的个人 AI 助手，基于 [Cloudwego Eino](https://github.com/
 - **子任务系统** — 后台 Subagent 独立执行长耗时任务，完成后自动通知
 - **定时任务** — Cron / 一次性定时任务，自然语言创建和管理
 - **心跳唤醒** — 定期读取 HEARTBEAT.md，LLM 自主决定是否行动
-- **技能扩展** — 与 Python nanobot 对齐的 Skill 系统，8 个内建技能，支持 always-on 和按需加载
+- **技能扩展** — 8 个内建技能，支持从Clawhub安装，支持 always-on 和按需加载
 - **MCP 延迟连接** — MCP 服务器首次收到消息时才建立连接，避免启动阻塞
 - **Prompt Cache 友好** — Append-only 消息列表 + 静态 System Prompt，最大化 LLM 缓存命中
 
@@ -51,12 +51,12 @@ Go 语言重写的个人 AI 助手，基于 [Cloudwego Eino](https://github.com/
 
 ## 快速开始
 
-### 前置条件
+### 1) 环境要求
 
-- Go 1.23+
-- LLM API Key（OpenAI / 通义千问 / 硅基流动 / 火山方舟 / Google Gemini / Ollama）
+- Go `1.25+`（`go.mod` 当前为 `go 1.25.6`）
+- 至少一个可用模型 Provider 的 API Key（本地 Ollama 可无 Key），模型支持OpenAI / 通义千问 / 硅基流动 / 火山方舟 / Google Gemini / Ollama / Deepseek / Claude / Openrouter / Qianfan
 
-### 安装
+### 2) 拉取与安装
 
 ```bash
 git clone https://github.com/wall/nanobot-eino.git
@@ -64,122 +64,173 @@ cd nanobot-eino
 go mod download
 ```
 
-### 初始化
+### 3) 初始化
 
 ```bash
 go run ./cmd/nanobot onboard
 ```
 
-创建 `~/.nanobot-eino/` 目录和默认配置文件。
+会创建 `~/.nanobot-eino/` 下的配置与运行目录（config、sessions、memory、cron、prompts、skills 等）。
 
-### 交互对话
+### 4) 配置模型
+
+编辑 `~/.nanobot-eino/config.yaml`，至少配置一个 provider 的 `apiKey` 和你要使用的模型名。
+
+### 5) 运行
 
 ```bash
+# 交互式 CLI
 go run ./cmd/nanobot agent
-```
 
-直接在终端与 Agent 对话，支持历史记录、Markdown 渲染。
+# 单轮消息，直接在终端与 Agent 对话，支持历史记录、Markdown 渲染
+go run ./cmd/nanobot agent -m "hello"
 
-### 启动完整服务
-
-```bash
+# 启动网关（飞书 + agent + heartbeat + cron）
 go run ./cmd/nanobot gateway
 ```
-
-启动飞书 Channel + Heartbeat + Cron 全套服务。
-
----
 
 ## CLI 命令
 
 | 命令 | 说明 |
-|------|------|
-| `go run ./cmd/nanobot gateway` | 启动完整服务（渠道 + Agent + 心跳 + 定时任务） |
-| `go run ./cmd/nanobot agent` | 交互式对话（`-m "msg"` 单次模式） |
-| `go run ./cmd/nanobot onboard` | 初始化配置和 workspace |
-| `go run ./cmd/nanobot status` | 显示当前配置和状态 |
-| `go run ./cmd/nanobot version` | 版本信息 |
+|---|---|
+| `go run ./cmd/nanobot onboard` | 初始化配置与运行目录 |
+| `go run ./cmd/nanobot agent` | 交互式聊天 |
+| `go run ./cmd/nanobot agent -m "..."` | 单轮聊天 |
+| `go run ./cmd/nanobot agent --raw` | 不做 Markdown 渲染，直接输出原文 |
+| `go run ./cmd/nanobot gateway` | 启动网关（飞书 + 心跳 + 定时任务） |
+| `go run ./cmd/nanobot status` | 输出当前生效配置与路径信息 |
+| `go run ./cmd/nanobot version` | 查看版本 |
 
-对话中可用：`/new` 新会话、`/stop` 终止任务、`/help` 帮助。
+Agent 对话内置命令：
 
----
+- `/new`：新会话并归档旧会话记忆
+- `/stop`：停止当前会话任务（含该会话子任务）
+- `/restart`：重启当前进程
+- `/help`：显示命令帮助
 
-## 配置
+## 配置说明
 
-默认配置文件位于 `~/.nanobot-eino/config.*`（如 `config.yaml` / `config.json`），支持 YAML / JSON / TOML 格式。
-建议只保留一个配置文件，避免多个同名配置并存导致生效值混淆。可通过 `go run ./cmd/nanobot status` 确认当前实际生效配置。
+默认配置文件：`~/.nanobot-eino/config.yaml`（也支持 JSON / TOML）。
+
+### 配置示例（YAML）
 
 ```yaml
-model:
-  type: openai          # openai / qwen / siliconflow / ark / google(gemini) / ollama
-  baseUrl: ""
-  apiKey: "sk-..."
-  model: "gpt-4o"
-
 agent:
+  provider: "openai"    # auto / openai / azure_openai / anthropic / deepseek / openrouter / qianfan / ark / gemini / ollama ...
+  model: "gpt-4o"
   contextWindowTokens: 65536
   maxStep: 20
+  maxTokens: 8192
+  temperature: 0.1
+  reasoningEffort: "medium" # low / medium / high（按模型支持情况生效）
+  
+providers:
+  openai:
+    apiKey: "sk-..."
+    apiBase: "https://api.openai.com/v1"
+  deepseek:
+    apiKey: "sk-..."
+    apiBase: "https://api.deepseek.com/v1"
+  anthropic:
+    apiKey: "sk-ant-..."
+  openrouter:
+    apiKey: "sk-or-v1-..."
+  qianfan:
+    apiKey: "your-access-key"
+    apiSecret: "your-secret-key"
+  azure_openai:
+    apiKey: "your-azure-key"
+    apiBase: "https://<resource>.openai.azure.com"
 
 channels:
   feishu:
     appId: "cli_xxx"
     appSecret: "xxx"
+    allowFrom: ["ou_xxx"] # “*” 为全部允许
+    groupPolicy: "mention" # mention / open
 
 tools:
-  workspace: "nanobot-eino"
+  workspace: "~/.nanobot-eino/workspace"
+  restrictToWorkspace: false
   web:
     search:
-      provider: "tavily"
-      apiKey: "tvly-xxx"
+      provider: tavily # brave / tavily / searxng / jina / duckduckgo
+      apiKey: "tvly-..."
+      maxResults: 5
   exec:
     timeout: "60s"
   mcp:
-    - name: "my-mcp"
-      command: "npx"
-      args: ["-y", "@my/mcp-server"]
+    - name: filesystem
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
 
 gateway:
   heartbeat:
+    enabled: true
+    path: "HEARTBEAT.md" # 相对路径时，相对于进程当前工作目录
     interval: "30m"
   cron:
-    storePath: "./data/jobs.json"
+    storePath: "~/.nanobot-eino/cron/jobs.json"
 ```
+
+Provider 路由说明：
+
+- `agent.provider` 为显式值时优先使用显式 provider。
+- `agent.provider=auto` 时，按模型前缀/关键词、`apiBase` 特征、已配置 Key 自动匹配。
+- `azure_openai` 通过 `apiBase` 包含 `.openai.azure.com` 自动走 Azure 模式。
+- `qianfan` 必须同时提供 `apiKey` 与 `apiSecret`。
 
 Google Gemini 配置示例（`config.yaml`）：
 
 ```yaml
-model:
-  type: google          # 或 gemini
-  # Gemini 官方 API 一般不需要 baseUrl，留空即可
-  baseUrl: ""
-  # 推荐留空并通过环境变量 NANOBOT_MODEL_API_KEY 注入
-  apiKey: ""
-  # 可按需替换为你有权限的 Gemini 模型
-  model: "gemini-2.5-flash"
-```
-
-最小可运行环境变量：
-
-```bash
-export NANOBOT_MODEL_TYPE=google
-export NANOBOT_MODEL_API_KEY="your-google-api-key"
-export NANOBOT_MODEL_NAME="gemini-2.5-flash"
+agent:
+  provider: gemini
+  model: gemini-2.5-flash
+providers:
+  gemini:
+    apiKey: "your-google-api-key"
 ```
 
 硅基流动（SiliconFlow）配置示例（`config.yaml`）：
 
 ```yaml
-model:
-  type: siliconflow
-  # 需要在配置中显式填写 SiliconFlow OpenAI 兼容地址
-  baseUrl: "https://api.siliconflow.cn/v1"
-  apiKey: "sk-xxxx"
+agent:
+  provider: siliconflow
   model: "Qwen/Qwen3-8B"
+providers:
+  siliconflow:
+  # 需要在配置中显式填写 SiliconFlow OpenAI 兼容地址
+  apiBase: "https://api.siliconflow.cn/v1"
+  apiKey: "sk-xxxx"
+```
+
+Qianfan（文心一言）配置示例（`config.yaml`）：
+
+```yaml
+agent:
+  provider: qianfan
+  model: ernie-4.0-8k
+providers:
+  qianfan:
+    apiKey: "your-access-key"
+    apiSecret: "your-secret-key"
+```
+
+Azure OpenAI 配置示例（`config.yaml`）：
+
+```yaml
+agent:
+  provider: azure_openai
+  model: gpt-4o
+providers:
+  azure_openai:
+    apiKey: "your-azure-key"
+    apiBase: "https://<resource>.openai.azure.com"
 ```
 
 环境变量覆盖（`NANOBOT_` 前缀）始终可用。
 
----
+## 工具系统
 
 ## 工具
 
@@ -187,7 +238,7 @@ model:
 |------|------|
 | `read_file` / `write_file` / `edit_file` / `list_dir` | 文件读写和目录浏览 |
 | `shell` | 执行 Shell 命令（可配置超时和黑白名单） |
-| `web_search` | Web 搜索（Tavily / Brave / Jina） |
+| `web_search` | Web 搜索（brave/tavily/searxng/jina/duckduckgo） |
 | `web_fetch` | 抓取网页并转为 Markdown |
 | `message` | 通过 MessageBus 向渠道发送消息 |
 | `cron` | 创建 / 删除 / 列出定时任务 |
@@ -203,7 +254,7 @@ Skill 系统支持 8 个内建技能：
 | 技能 | 说明 | 依赖 |
 |------|------|------|
 | memory | 双层记忆系统（MEMORY.md + HISTORY.md） | — (always-on) |
-| weather | 天气查询（curl + wttr.in） | curl |
+| weather | 天气查询（wttr.in + Open-Meteo fallback） | curl |
 | summarize | URL/文件/视频摘要 | summarize CLI |
 | skill-creator | 创建/更新 Agent 技能 | — |
 | github | 通过 gh CLI 操作 GitHub | gh |
@@ -217,10 +268,11 @@ Skill 系统支持 8 个内建技能：
 
 ---
 
-## 记忆系统
+## 记忆与会话
 
 - **MEMORY.md** — 长期记忆，由 LLM 使用 `save_memory` 工具整理，每次覆写
 - **HISTORY.md** — 对话历史摘要日志，只追加不修改
+- 超出阈值后自动触发 consolidation，保留关键信息并压缩历史上下文
 
 整理策略：
 - Token 估算超过上下文窗口 50% 时自动触发
@@ -274,7 +326,7 @@ nanobot-eino/
 | 依赖 | 用途 |
 |------|------|
 | [cloudwego/eino](https://github.com/cloudwego/eino) | AI 应用框架（React Agent / Schema / Compose） |
-| eino-ext/model/* | LLM 模型扩展（OpenAI / Ollama / Ark / Gemini） |
+| eino-ext/model/* | LLM 模型扩展（OpenAI / Claude / DeepSeek / OpenRouter / Qianfan / Ollama / Ark / Gemini） |
 | eino-ext/tool/mcp | MCP 工具集成 |
 | [spf13/cobra](https://github.com/spf13/cobra) | CLI 框架 |
 | [spf13/viper](https://github.com/spf13/viper) | 配置管理 |
@@ -290,7 +342,24 @@ nanobot-eino/
 
 ```bash
 docker build -t nanobot-eino .
-docker run -v $(pwd)/data:/root/data nanobot-eino
+
+# 初始化（首次）
+docker run --rm -it \
+  -v ~/.nanobot-eino:/root/.nanobot-eino \
+  nanobot-eino onboard
+
+# 交互式 agent
+docker run --rm -it \
+  -v ~/.nanobot-eino:/root/.nanobot-eino \
+  nanobot-eino agent
+
+# gateway / status
+docker run --rm -it \
+  -v ~/.nanobot-eino:/root/.nanobot-eino \
+  nanobot-eino gateway
+docker run --rm -it \
+  -v ~/.nanobot-eino:/root/.nanobot-eino \
+  nanobot-eino status
 ```
 
 ---
@@ -319,24 +388,9 @@ trace:
   secretKey: "sk-lf-..."
 ```
 
-或通过环境变量：
+启用条件：`enabled=true` 且 `endpoint/publicKey/secretKey` 均非空。
 
-```bash
-export NANOBOT_TRACE_ENABLED=true
-export NANOBOT_TRACE_ENDPOINT=http://localhost:3000
-export NANOBOT_TRACE_PUBLICKEY=pk-lf-...
-export NANOBOT_TRACE_SECRETKEY=sk-lf-...
-```
-
-### 使用
-
-配置完成后，正常启动 agent 或 gateway 即可：
-
-```bash
-go run ./cmd/nanobot agent          # 交互模式
-go run ./cmd/nanobot agent -m "hi"  # 单次模式
-go run ./cmd/nanobot gateway        # 完整服务
-```
+仓库中提供了本地部署文件：`docker-compose.langfuse.yml`。
 
 打开 Langfuse UI (`http://localhost:3000`) → Traces 页面，可以看到：
 
@@ -370,10 +424,8 @@ Nanobot-Eino
         └── MinIO
 ```
 
----
-
 ## 致谢
 
-- [OpenClaw](https://github.com/openclaw/openclaw) — 灵感来源
-- [nanobot](https://github.com/nanobot/nanobot) — Python 原版实现
-- [Cloudwego Eino](https://github.com/cloudwego/eino) — Go AI 应用框架
+- [OpenClaw](https://github.com/openclaw/openclaw)
+- [nanobot (Python)](https://github.com/HKUDS/nanobot)
+- [CloudWeGo Eino](https://github.com/cloudwego/eino)

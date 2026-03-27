@@ -10,9 +10,10 @@ services:
     environment:
       DATABASE_URL: "postgresql://langfuse:langfuse@postgres:5432/langfuse"
       CLICKHOUSE_URL: "http://clickhouse:8123"
-      CLICKHOUSE_MIGRATION_URL: "clickhouse://clickhouse:9000"
-      REDIS_HOST: "redis"
-      REDIS_PORT: "6379"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: "langfuse"
+      CLICKHOUSE_MIGRATION_URL: "clickhouse://default:langfuse@clickhouse:9000"
+      REDIS_CONNECTION_STRING: "redis://redis:6379"
       SALT: "nanobot-eino-local-salt"
       ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       NEXTAUTH_SECRET: "nanobot-eino-local-secret"
@@ -24,6 +25,13 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: "langfuse"
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: "us-east-1"
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://minio:9000"
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: "langfuse-events"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,8 +39,44 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-      minio:
-        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql://langfuse:langfuse@postgres:5432/langfuse"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: "langfuse"
+      CLICKHOUSE_MIGRATION_URL: "clickhouse://default:langfuse@clickhouse:9000"
+      REDIS_CONNECTION_STRING: "redis://redis:6379"
+      SALT: "nanobot-eino-local-salt"
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      LANGFUSE_S3_MEDIA_UPLOAD_ENABLED: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: "http://minio:9000"
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: "minioadmin"
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: "minioadmin"
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: "langfuse"
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: "us-east-1"
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://minio:9000"
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "minioadmin"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: "langfuse-events"
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   postgres:
     image: postgres:16-alpine
@@ -50,10 +94,14 @@ services:
 
   clickhouse:
     image: clickhouse/clickhouse-server:24
+    environment:
+      CLICKHOUSE_PASSWORD: "langfuse"
     volumes:
       - langfuse-clickhouse:/var/lib/clickhouse
+      - langfuse-clickhouse-logs:/var/log/clickhouse-server
+      - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/keeper.xml:ro
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: ["CMD", "clickhouse-client", "--password", "langfuse", "--query", "SELECT 1"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -78,9 +126,28 @@ services:
       - langfuse-minio:/data
     ports:
       - "9090:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/langfuse --ignore-existing;
+      mc mb local/langfuse-events --ignore-existing;
+      exit 0;
+      "
 
 volumes:
   langfuse-postgres:
   langfuse-clickhouse:
+  langfuse-clickhouse-logs:
   langfuse-redis:
   langfuse-minio:

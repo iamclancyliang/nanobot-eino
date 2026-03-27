@@ -43,7 +43,6 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 // Config is the top-level configuration for nanobot-eino.
 type Config struct {
 	Agent     AgentConfig                `json:"agent"`
-	Model     ModelConfig                `json:"model"`
 	Providers map[string]ProviderConfig  `json:"providers,omitempty"`
 	Channels  ChannelsConfig             `json:"channels"`
 	Gateway   GatewayConfig              `json:"gateway"`
@@ -61,21 +60,13 @@ type AgentConfig struct {
 	Temperature         float64 `json:"temperature,omitempty"`
 	ReasoningEffort     string  `json:"reasoningEffort,omitempty"`
 	Provider            string  `json:"provider,omitempty"` // "auto" or explicit provider name
-	Model               string  `json:"model,omitempty"`    // model name; overrides model.model
-}
-
-// ModelConfig is the legacy single-provider configuration.
-// Kept for backward compatibility; new deployments should use Providers map.
-type ModelConfig struct {
-	Type    string `json:"type"`
-	BaseURL string `json:"baseUrl"`
-	APIKey  string `json:"apiKey"`
-	Model   string `json:"model"`
+	Model               string  `json:"model,omitempty"`    // model name
 }
 
 // ProviderConfig holds credentials and endpoint for an LLM provider.
 type ProviderConfig struct {
 	APIKey       string            `json:"apiKey,omitempty"`
+	APISecret    string            `json:"apiSecret,omitempty"`
 	APIBase      string            `json:"apiBase,omitempty"`
 	ExtraHeaders map[string]string `json:"extraHeaders,omitempty"`
 }
@@ -223,29 +214,20 @@ func (c *Config) ResolveSkillsDir() string {
 }
 
 // GetProvider returns the ProviderConfig for the given provider name.
-// Falls back to constructing one from the legacy Model section.
 func (c *Config) GetProvider(name string) (ProviderConfig, bool) {
-	if len(c.Providers) > 0 {
-		if p, ok := c.Providers[name]; ok {
-			return p, true
-		}
-	}
-	if c.Model.APIKey != "" && (name == "" || name == c.Model.Type) {
-		return ProviderConfig{
-			APIKey:  c.Model.APIKey,
-			APIBase: c.Model.BaseURL,
-		}, true
+	if p, ok := c.Providers[name]; ok {
+		return p, true
 	}
 	return ProviderConfig{}, false
 }
 
-// GetAPIKey returns the API key for the given provider (or the legacy key).
+// GetAPIKey returns the API key for the given provider.
 func (c *Config) GetAPIKey(providerName string) string {
 	p, ok := c.GetProvider(providerName)
 	if ok {
 		return p.APIKey
 	}
-	return c.Model.APIKey
+	return ""
 }
 
 // GetAPIBase returns the API base URL for the given provider.
@@ -254,29 +236,23 @@ func (c *Config) GetAPIBase(providerName string) string {
 	if ok && p.APIBase != "" {
 		return p.APIBase
 	}
-	return c.Model.BaseURL
+	return ""
 }
 
 // EffectiveModel returns the model name.
-// Priority: Agent.Model > Model.Model > "gpt-4o".
+// Priority: Agent.Model > "gpt-4o".
 func (c *Config) EffectiveModel() string {
 	if c.Agent.Model != "" {
 		return c.Agent.Model
 	}
-	if c.Model.Model != "" {
-		return c.Model.Model
-	}
 	return "gpt-4o"
 }
 
-// EffectiveProviderName returns the provider name to use. Checks Agent.Provider
-// first ("auto" means auto-detect), then falls back to Model.Type.
+// EffectiveProviderName returns the provider name to use.
+// Checks Agent.Provider first ("auto" means auto-detect), then falls back to "openai".
 func (c *Config) EffectiveProviderName() string {
 	if c.Agent.Provider != "" && c.Agent.Provider != "auto" {
 		return c.Agent.Provider
-	}
-	if c.Model.Type != "" {
-		return c.Model.Type
 	}
 	return "openai"
 }

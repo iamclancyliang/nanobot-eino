@@ -1,0 +1,14 @@
+.worktrees/
+.assets
+.docs
+.env
+build/
+.claude
+.cursor
+.DS_Store
+findings.md
+progress.md
+trace.md
+question.md
+task_plan.md
+note.md
