@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nanobot-Eino: How Your AI Assistant Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ========== DESIGN TOKENS ========== */
+:root {
+  --color-bg:             #FAF7F2;
+  --color-bg-warm:        #F5F0E8;
+  --color-bg-code:        #1E1E2E;
+  --color-text:           #2C2A28;
+  --color-text-secondary: #6B6560;
+  --color-text-muted:     #9E9790;
+  --color-border:         #E5DFD6;
+  --color-border-light:   #EEEBE5;
+  --color-surface:        #FFFFFF;
+  --color-surface-warm:   #FDF9F3;
+  --color-accent:         #D94F30;
+  --color-accent-hover:   #C4432A;
+  --color-accent-light:   #FDEEE9;
+  --color-accent-muted:   #E8836C;
+  --color-success:        #2D8B55;
+  --color-success-light:  #E8F5EE;
+  --color-error:          #C93B3B;
+  --color-error-light:    #FDE8E8;
+  --color-info:           #2A7B9B;
+  --color-info-light:     #E4F2F7;
+  --color-actor-1:        #D94F30;
+  --color-actor-2:        #2A7B9B;
+  --color-actor-3:        #7B6DAA;
+  --color-actor-4:        #D4A843;
+  --color-actor-5:        #2D8B55;
+
+  --font-display:  'Bricolage Grotesque', Georgia, serif;
+  --font-body:     'DM Sans', -apple-system, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+  --text-4xl:  2.25rem;
+  --text-5xl:  3rem;
+  --text-6xl:  3.75rem;
+
+  --leading-tight:  1.15;
+  --leading-snug:   1.3;
+  --leading-normal: 1.6;
+  --leading-loose:  1.8;
+
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  --content-width:     800px;
+  --content-width-wide: 1000px;
+  --nav-height:        50px;
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-full: 9999px;
+
+  --shadow-sm:  0 1px 2px rgba(44, 42, 40, 0.05);
+  --shadow-md:  0 4px 12px rgba(44, 42, 40, 0.08);
+  --shadow-lg:  0 8px 24px rgba(44, 42, 40, 0.1);
+  --shadow-xl:  0 16px 48px rgba(44, 42, 40, 0.12);
+
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast:   150ms;
+  --duration-normal: 300ms;
+  --duration-slow:   500ms;
+  --stagger-delay:   120ms;
+}
+
+/* ========== RESET & BASE ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  scroll-snap-type: y proximity;
+  scroll-behavior: smooth;
+}
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: var(--color-bg);
+  background-image: radial-gradient(ellipse at 20% 50%, rgba(217,79,48,0.03) 0%, transparent 50%);
+}
+pre, code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+.translation-code::-webkit-scrollbar, pre::-webkit-scrollbar { display: none; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+
+/* ========== NAVIGATION ========== */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 1000;
+  background: rgba(250, 247, 242, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border-light);
+  height: var(--nav-height);
+}
+.progress-bar {
+  position: absolute; top: 0; left: 0; height: 3px;
+  background: var(--color-accent);
+  width: 0%; transition: width 100ms linear;
+}
+.nav-inner {
+  max-width: var(--content-width-wide);
+  margin: 0 auto; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-6);
+}
+.nav-title {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: var(--text-lg);
+  color: var(--color-text);
+}
+.nav-dots { display: flex; gap: var(--space-3); }
+.nav-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--color-text-muted);
+  background: transparent; cursor: pointer;
+  transition: all var(--duration-fast);
+  padding: 0;
+}
+.nav-dot:hover { border-color: var(--color-accent); }
+.nav-dot.active { border-color: var(--color-accent); background: var(--color-accent); box-shadow: 0 0 8px rgba(217,79,48,0.3); }
+.nav-dot.visited { border-color: var(--color-accent); background: var(--color-accent); }
+
+/* ========== MODULES ========== */
+.module {
+  min-height: 100dvh; min-height: 100vh;
+  scroll-snap-align: start;
+  padding: var(--space-16) var(--space-6);
+  padding-top: calc(var(--nav-height) + var(--space-12));
+}
+.module-content {
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+.module-header { text-align: center; margin-bottom: var(--space-12); }
+.module-number {
+  font-family: var(--font-display); font-size: var(--text-6xl);
+  font-weight: 800; color: var(--color-accent); opacity: 0.15;
+  display: block; line-height: var(--leading-tight);
+}
+.module-title {
+  font-family: var(--font-display); font-size: var(--text-4xl);
+  font-weight: 700; line-height: var(--leading-tight);
+  margin-top: var(--space-2);
+}
+.module-subtitle {
+  font-size: var(--text-lg); color: var(--color-text-secondary);
+  margin-top: var(--space-3);
+}
+.module-body { display: flex; flex-direction: column; gap: var(--space-12); }
+.screen { display: flex; flex-direction: column; gap: var(--space-6); }
+.screen-heading {
+  font-family: var(--font-display); font-size: var(--text-2xl);
+  font-weight: 600; line-height: var(--leading-snug);
+}
+
+/* ========== ANIMATIONS ========== */
+.animate-in {
+  opacity: 0; transform: translateY(20px);
+  transition: opacity var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out);
+}
+.animate-in.visible { opacity: 1; transform: translateY(0); }
+.stagger-children > .animate-in {
+  transition-delay: calc(var(--stagger-index, 0) * var(--stagger-delay));
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== CODE TRANSLATIONS ========== */
+.translation-block {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border-radius: var(--radius-md); overflow: hidden;
+  box-shadow: var(--shadow-md); margin: var(--space-4) 0;
+}
+.translation-code {
+  background: var(--color-bg-code); color: #CDD6F4;
+  padding: var(--space-6); font-family: var(--font-mono);
+  font-size: var(--text-sm); line-height: 1.7;
+  position: relative; overflow-x: hidden;
+}
+.translation-code pre, .translation-code code {
+  white-space: pre-wrap; word-break: break-word; overflow-x: hidden;
+}
+.translation-english {
+  background: var(--color-surface-warm); padding: var(--space-6);
+  font-size: var(--text-sm); line-height: 1.7;
+  border-left: 3px solid var(--color-accent);
+  position: relative;
+}
+.translation-label {
+  position: absolute; top: var(--space-2); right: var(--space-3);
+  font-size: var(--text-xs); text-transform: uppercase;
+  letter-spacing: 0.1em; opacity: 0.5;
+}
+.translation-english .translation-label { color: var(--color-text-muted); }
+.tl { margin-bottom: var(--space-2); }
+.tl:last-child { margin-bottom: 0; }
+
+/* Syntax highlighting */
+.code-keyword  { color: #CBA6F7; }
+.code-string   { color: #A6E3A1; }
+.code-function { color: #89B4FA; }
+.code-comment  { color: #6C7086; }
+.code-number   { color: #FAB387; }
+.code-property { color: #F9E2AF; }
+.code-operator { color: #94E2D5; }
+.code-type     { color: #F9E2AF; }
+
+/* ========== PATTERN CARDS ========== */
+.pattern-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+.pattern-card {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: var(--space-6); box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal);
+}
+.pattern-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.pattern-icon {
+  width: 48px; height: 48px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; margin-bottom: var(--space-3);
+}
+.pattern-title {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-lg); margin-bottom: var(--space-2);
+}
+.pattern-desc { color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+/* ========== ICON ROWS ========== */
+.icon-rows { display: flex; flex-direction: column; gap: var(--space-4); }
+.icon-row {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-4); background: var(--color-surface);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.icon-row p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+.icon-circle {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; flex-shrink: 0; color: white;
+}
+
+/* ========== CALLOUT ========== */
+.callout {
+  display: flex; gap: var(--space-4); padding: var(--space-5);
+  border-radius: var(--radius-md); margin: var(--space-4) 0;
+}
+.callout-accent { background: var(--color-accent-light); border-left: 4px solid var(--color-accent); }
+.callout-info { background: var(--color-info-light); border-left: 4px solid var(--color-info); }
+.callout-warning { background: var(--color-error-light); border-left: 4px solid var(--color-error); }
+.callout-icon { font-size: 1.5rem; flex-shrink: 0; }
+.callout-content { flex: 1; }
+.callout-title { display: block; font-weight: 600; margin-bottom: var(--space-1); }
+.callout-content p { font-size: var(--text-sm); color: var(--color-text-secondary); margin: 0; }
+
+/* ========== STEP CARDS ========== */
+.step-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+.step-card {
+  display: flex; align-items: flex-start; gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface); border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-accent); box-shadow: var(--shadow-sm);
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color-accent); color: white; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); flex-shrink: 0;
+}
+.step-body strong { display: block; }
+.step-body p { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+/* ========== FLOW DIAGRAM ========== */
+.flow-steps {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--space-3); flex-wrap: wrap;
+}
+.flow-step {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: var(--space-4); text-align: center; min-width: 100px;
+  box-shadow: var(--shadow-sm); font-size: var(--text-sm);
+}
+.flow-step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--color-accent); color: white; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto var(--space-2); font-size: var(--text-sm);
+}
+.flow-arrow { color: var(--color-accent); font-size: var(--text-2xl); font-weight: 700; }
+
+/* ========== FILE TREE ========== */
+.file-tree { font-family: var(--font-mono); font-size: var(--text-sm); background: var(--color-surface); padding: var(--space-6); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.ft-folder, .ft-file { padding: var(--space-2) var(--space-3); border-left: 2px solid var(--color-border-light); margin-left: var(--space-4); }
+.ft-folder > .ft-name { color: var(--color-accent); font-weight: 600; }
+.ft-file > .ft-name { color: var(--color-info); }
+.ft-desc { color: var(--color-text-secondary); font-family: var(--font-body); margin-left: var(--space-2); font-size: var(--text-xs); }
+.ft-children { margin-left: var(--space-4); }
+.ft-root { border-left: none; margin-left: 0; }
+
+/* ========== CHAT ANIMATION ========== */
+.chat-window {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  max-width: 560px; margin: var(--space-4) auto;
+}
+.chat-header {
+  background: var(--color-bg-code); color: #CDD6F4;
+  padding: var(--space-3) var(--space-5);
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-sm); text-align: center;
+}
+.chat-messages {
+  padding: var(--space-4); min-height: 200px;
+  max-height: 420px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.chat-message {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  animation: fadeSlideUp 0.3s var(--ease-out);
+}
+.chat-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700; font-size: var(--text-xs);
+  flex-shrink: 0; font-family: var(--font-mono);
+}
+.chat-bubble {
+  background: var(--color-bg); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); max-width: 80%;
+  font-size: var(--text-sm);
+}
+.chat-sender {
+  font-weight: 600; font-size: var(--text-xs);
+  display: block; margin-bottom: var(--space-1);
+}
+.chat-bubble p { margin: 0; }
+.chat-typing {
+  display: flex; gap: var(--space-3); align-items: center;
+  padding: 0 var(--space-4) var(--space-3);
+}
+.chat-typing-dots { display: flex; gap: 4px; }
+.typing-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-text-muted);
+  animation: typingBounce 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+.chat-controls {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border-light);
+  display: flex; gap: var(--space-3); align-items: center;
+}
+.chat-controls button {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); cursor: pointer; font-size: var(--text-sm);
+  font-family: var(--font-body);
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.chat-controls button:hover { border-color: var(--color-accent); background: var(--color-accent-light); }
+.chat-progress { font-size: var(--text-xs); color: var(--color-text-muted); margin-left: auto; }
+
+/* ========== DATA FLOW ANIMATION ========== */
+.flow-animation {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: var(--space-8);
+  max-width: 700px; margin: var(--space-4) auto;
+}
+.flow-actors {
+  display: flex; justify-content: space-around; align-items: center;
+  margin-bottom: var(--space-8); position: relative;
+}
+.flow-actor {
+  text-align: center; padding: var(--space-3);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+.flow-actor.active {
+  box-shadow: 0 0 0 3px var(--color-accent), 0 0 20px rgba(217,79,48,0.2);
+  transform: scale(1.05);
+}
+.flow-actor-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700; margin: 0 auto var(--space-2);
+  font-size: var(--text-lg); font-family: var(--font-mono);
+}
+.flow-actor span { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); }
+.flow-step-label {
+  text-align: center; padding: var(--space-4);
+  font-size: var(--text-sm); color: var(--color-text-secondary);
+  min-height: 60px; display: flex; align-items: center; justify-content: center;
+  background: var(--color-bg); border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+.flow-controls {
+  display: flex; gap: var(--space-3); justify-content: center; align-items: center;
+}
+.flow-controls button {
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); cursor: pointer; font-size: var(--text-sm);
+  font-family: var(--font-body);
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.flow-controls button:hover { border-color: var(--color-accent); background: var(--color-accent-light); }
+.flow-progress { font-size: var(--text-xs); color: var(--color-text-muted); }
+.flow-connector {
+  position: absolute; top: 50%; height: 2px;
+  background: var(--color-border); z-index: 0;
+}
+.flow-connector.active-line { background: var(--color-accent); height: 3px; transition: background var(--duration-normal); }
+
+/* ========== QUIZ ========== */
+.quiz-container { margin: var(--space-6) 0; }
+.quiz-question-block { margin-bottom: var(--space-6); }
+.quiz-question {
+  font-family: var(--font-display); font-size: var(--text-lg);
+  font-weight: 600; margin-bottom: var(--space-4);
+}
+.quiz-options { display: flex; flex-direction: column; gap: var(--space-3); }
+.quiz-option {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); cursor: pointer; width: 100%;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+  font-family: var(--font-body); font-size: var(--text-sm); text-align: left;
+}
+.quiz-option:hover { border-color: var(--color-accent-muted); }
+.quiz-option.selected { border-color: var(--color-accent); background: var(--color-accent-light); }
+.quiz-option.correct { border-color: var(--color-success); background: var(--color-success-light); }
+.quiz-option.incorrect { border-color: var(--color-error); background: var(--color-error-light); }
+.quiz-option-radio {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--color-border); flex-shrink: 0;
+  transition: all var(--duration-fast);
+}
+.quiz-option.selected .quiz-option-radio { border-color: var(--color-accent); background: var(--color-accent); box-shadow: inset 0 0 0 3px white; }
+.quiz-option.correct .quiz-option-radio { border-color: var(--color-success); background: var(--color-success); box-shadow: inset 0 0 0 3px white; }
+.quiz-option.incorrect .quiz-option-radio { border-color: var(--color-error); background: var(--color-error); box-shadow: inset 0 0 0 3px white; }
+.quiz-feedback {
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height var(--duration-normal), opacity var(--duration-normal), padding var(--duration-normal);
+  font-size: var(--text-sm); border-radius: var(--radius-sm);
+}
+.quiz-feedback.show { max-height: 200px; opacity: 1; padding: var(--space-3); margin-top: var(--space-2); }
+.quiz-feedback.success { background: var(--color-success-light); color: var(--color-success); }
+.quiz-feedback.error { background: var(--color-error-light); color: var(--color-error); }
+.quiz-check-btn {
+  margin-top: var(--space-4); padding: var(--space-3) var(--space-6);
+  background: var(--color-accent); color: white; border: none;
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: var(--text-base);
+  transition: background var(--duration-fast);
+}
+.quiz-check-btn:hover { background: var(--color-accent-hover); }
+.quiz-reset-btn {
+  margin-top: var(--space-2); margin-left: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: transparent; border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm);
+  font-family: var(--font-body);
+}
+
+/* ========== GLOSSARY TOOLTIPS ========== */
+.term {
+  border-bottom: 1.5px dashed var(--color-accent-muted);
+  cursor: pointer; position: relative;
+}
+.term:hover, .term.active { border-bottom-color: var(--color-accent); color: var(--color-accent); }
+.term-tooltip {
+  position: fixed; background: var(--color-bg-code); color: #CDD6F4;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); font-family: var(--font-body);
+  line-height: var(--leading-normal);
+  width: max(200px, min(320px, 80vw));
+  box-shadow: var(--shadow-lg); pointer-events: none;
+  opacity: 0; transition: opacity var(--duration-fast);
+  z-index: 10000;
+}
+.term-tooltip::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--color-bg-code);
+}
+.term-tooltip.visible { opacity: 1; }
+.term-tooltip.flip::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--color-bg-code); }
+
+/* ========== SCENARIO BLOCK ========== */
+.scenario-block { margin-bottom: var(--space-4); }
+.scenario-context {
+  background: var(--color-info-light); border-left: 4px solid var(--color-info);
+  padding: var(--space-4); border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+.scenario-label {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--color-info); font-weight: 600;
+  display: block; margin-bottom: var(--space-2);
+}
+.scenario-context p { font-size: var(--text-sm); color: var(--color-text); margin: 0; }
+
+/* ========== ARCH DIAGRAM ========== */
+.arch-diagram {
+  background: var(--color-surface); border-radius: var(--radius-lg);
+  padding: var(--space-8); box-shadow: var(--shadow-md);
+}
+.arch-zones { display: flex; flex-direction: column; gap: var(--space-6); }
+.arch-zone {
+  border: 2px dashed var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.arch-zone-label {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--color-text-muted); margin-bottom: var(--space-4);
+}
+.arch-components {
+  display: flex; flex-wrap: wrap; gap: var(--space-3);
+}
+.arch-component {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm); cursor: pointer;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface-warm);
+  transition: all var(--duration-fast);
+  text-align: center; font-size: var(--text-sm);
+}
+.arch-component:hover, .arch-component.active {
+  border-color: var(--color-accent); background: var(--color-accent-light);
+}
+.arch-component .arch-icon { font-size: 1.5rem; margin-bottom: var(--space-1); }
+.arch-description {
+  margin-top: var(--space-4); padding: var(--space-4);
+  background: var(--color-bg); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); color: var(--color-text-secondary);
+  min-height: 50px;
+}
+
+/* ========== HERO ========== */
+.hero-module {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; min-height: 100dvh; min-height: 100vh;
+  background: var(--color-bg);
+  padding: var(--space-16) var(--space-6);
+}
+.hero-badge {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  text-transform: uppercase; letter-spacing: 0.15em;
+  color: var(--color-accent); background: var(--color-accent-light);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-full);
+  margin-bottom: var(--space-6);
+}
+.hero-title {
+  font-family: var(--font-display); font-size: var(--text-5xl);
+  font-weight: 800; line-height: var(--leading-tight);
+  max-width: 700px; margin-bottom: var(--space-4);
+}
+.hero-sub {
+  font-size: var(--text-xl); color: var(--color-text-secondary);
+  max-width: 540px; margin-bottom: var(--space-8);
+}
+.hero-tags { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.hero-tag {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+  border: 1px solid var(--color-border); color: var(--color-text-secondary);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  :root { --text-4xl: 1.875rem; --text-5xl: 2.25rem; --text-6xl: 3rem; }
+  .translation-block { grid-template-columns: 1fr; }
+  .translation-english { border-left: none; border-top: 3px solid var(--color-accent); }
+  .pattern-cards { grid-template-columns: 1fr 1fr; }
+  .flow-actors { flex-direction: column; gap: var(--space-4); }
+  .arch-components { flex-direction: column; }
+}
+@media (max-width: 480px) {
+  :root { --text-4xl: 1.5rem; --text-5xl: 1.875rem; --text-6xl: 2.25rem; }
+  .module { padding: var(--space-8) var(--space-4); }
+  .pattern-cards { grid-template-columns: 1fr; }
+  .flow-steps { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== NAVIGATION ========== -->
+<nav class="nav">
+  <div class="progress-bar" id="progressBar" role="progressbar" aria-valuenow="0"></div>
+  <div class="nav-inner">
+    <span class="nav-title">Nanobot-Eino</span>
+    <div class="nav-dots">
+      <button class="nav-dot" data-target="hero" aria-label="Intro"></button>
+      <button class="nav-dot" data-target="module-1" aria-label="Module 1"></button>
+      <button class="nav-dot" data-target="module-2" aria-label="Module 2"></button>
+      <button class="nav-dot" data-target="module-3" aria-label="Module 3"></button>
+      <button class="nav-dot" data-target="module-4" aria-label="Module 4"></button>
+      <button class="nav-dot" data-target="module-5" aria-label="Module 5"></button>
+      <button class="nav-dot" data-target="module-6" aria-label="Module 6"></button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HERO ========== -->
+<section class="hero-module" id="hero" style="scroll-snap-align: start;">
+  <div class="animate-in">
+    <div class="hero-badge">Interactive Course</div>
+    <h1 class="hero-title">Nanobot-Eino: Your AI Assistant, Demystified</h1>
+    <p class="hero-sub">A Go-powered AI agent that lives in Feishu, remembers your conversations, uses tools, and can schedule tasks for you. Let's see how it all works under the hood.</p>
+    <div class="hero-tags">
+      <span class="hero-tag">Go</span>
+      <span class="hero-tag">Eino Framework</span>
+      <span class="hero-tag">ReAct Agent</span>
+      <span class="hero-tag">Feishu/Lark</span>
+      <span class="hero-tag">Memory System</span>
+      <span class="hero-tag">Tool Calling</span>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 1: What happens when you send a message? -->
+<!-- ====================================================================== -->
+<section class="module" id="module-1" style="background: var(--color-bg-warm);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">01</span>
+      <h1 class="module-title">You Send a Message. What Happens Next?</h1>
+      <p class="module-subtitle">Tracing a message from your Feishu chat all the way to the AI and back</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: The Product -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Meet Nanobot-Eino</h2>
+        <p>Imagine you have a personal assistant that lives inside your <span class="term" data-definition="Feishu (also known as Lark) is a workplace messaging and collaboration platform made by ByteDance. Think of it like Slack or Microsoft Teams, but popular in China.">Feishu</span> chat. You type a question, and it answers. You ask it to search the web, and it does. You tell it to remind you tomorrow at 9am, and it schedules it.</p>
+        <p>That's Nanobot-Eino. It's a full AI assistant built in <span class="term" data-definition="Go (also called Golang) is a programming language created by Google. It's known for being fast, simple, and great at handling many tasks at once (concurrency). It's popular for building servers and backend systems.">Go</span> that connects to large language models like <span class="term" data-definition="A Large Language Model (LLM) is an AI system trained on massive amounts of text data. Examples include ChatGPT, Claude, and DeepSeek. They can understand and generate human-like text.">LLMs</span>, has persistent memory, and can use tools to interact with the world.</p>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#x1f4a1;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why This Matters for You</strong>
+            <p>Understanding how an AI agent works helps you build better ones. When your AI assistant gets stuck in a loop or forgets context, you'll know exactly where to look.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: The Journey (Step Cards) -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Journey of a Message</h2>
+        <p>When you type "What's the weather in Beijing?" in Feishu, here's what happens behind the scenes:</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Feishu sends it over WebSocket</strong>
+              <p>Feishu's server pushes your message to Nanobot via a persistent <span class="term" data-definition="WebSocket is a way for two computers to keep an open connection and send messages back and forth in real-time. Unlike regular web requests (HTTP), the connection stays open instead of opening and closing for each message. Think of it like a phone call vs. sending postcards.">WebSocket</span> connection</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>The Channel adapter normalizes it</strong>
+              <p>The Feishu channel converts the raw message into a standard format the system understands</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>MessageBus routes it to the Agent</strong>
+              <p>A <span class="term" data-definition="A message bus is like a post office inside the software. Components drop messages into it, and the bus delivers them to whoever needs them. It keeps components separated so they don't need to know about each other directly.">message bus</span> carries it to the AI brain</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Agent builds the full prompt</strong>
+              <p>Your message gets combined with system instructions, memory, conversation history, and available tools</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <strong>The ReAct loop runs</strong>
+              <p>The <span class="term" data-definition="ReAct stands for 'Reasoning and Acting.' It's a pattern where an AI thinks about what to do, takes an action (like calling a tool), observes the result, then decides what to do next. It's like how you'd solve a problem: think, try something, see what happened, repeat.">ReAct agent</span> thinks, calls tools if needed, observes results, and reasons again</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num">6</div>
+            <div class="step-body">
+              <strong>Response streams back</strong>
+              <p>The AI's answer flows back through the bus to the Feishu channel and into your chat</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Data Flow Animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Watch It Happen</h2>
+        <p>Click "Next Step" to see data flowing through the system:</p>
+
+        <div class="flow-animation" id="flow1">
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow1-feishu">
+              <div class="flow-actor-icon" style="background: var(--color-actor-1);">F</div>
+              <span>Feishu</span>
+            </div>
+            <div class="flow-actor" id="flow1-bus">
+              <div class="flow-actor-icon" style="background: var(--color-actor-4);">B</div>
+              <span>MessageBus</span>
+            </div>
+            <div class="flow-actor" id="flow1-agent">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2);">A</div>
+              <span>Agent</span>
+            </div>
+            <div class="flow-actor" id="flow1-llm">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3);">L</div>
+              <span>LLM</span>
+            </div>
+            <div class="flow-actor" id="flow1-tool">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5);">T</div>
+              <span>Tools</span>
+            </div>
+          </div>
+          <div class="flow-step-label" id="flow1-label">Click "Next Step" to begin</div>
+          <div class="flow-controls">
+            <button onclick="flow1Next()">Next Step</button>
+            <button onclick="flow1Reset()">Restart</button>
+            <span class="flow-progress" id="flow1-progress">Step 0 / 7</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Code Translation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Brain: ChatStream</h2>
+        <p>This is the core <span class="term" data-definition="A function is a named block of code that performs a specific task. Think of it like a recipe: it has a name, takes some ingredients (inputs), follows steps, and produces a result (output). You can use the same recipe over and over.">function</span> that processes every message. Let's read it together:</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">func</span> (a *<span class="code-type">Agent</span>) <span class="code-function">ChatStream</span>(ctx <span class="code-type">context.Context</span>, sessionID, input <span class="code-type">string</span>) {
+  a.<span class="code-function">ensureMCPConnected</span>(ctx)
+
+  taskCtx, taskCancel := <span class="code-function">context.WithCancel</span>(ctx)
+  a.activeTasks.<span class="code-function">Store</span>(sessionID, taskCancel)
+
+  sess := a.sessions.<span class="code-function">GetOrCreate</span>(sessionID)
+  a.consolidator.<span class="code-function">MaybeConsolidateByTokens</span>(taskCtx, sess)
+
+  history := sess.<span class="code-function">GetHistory</span>(<span class="code-number">0</span>)
+  messages, _ := a.<span class="code-function">buildMessages</span>(taskCtx, history, input)
+
+  stream, _ := currentAgent.<span class="code-function">Stream</span>(taskCtx, messages)
+}</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This is the main "process a message" function on the Agent...</p>
+              <p class="tl">First, connect any external tool servers (only happens once, lazily)</p>
+              <p class="tl">Create a "cancel button" for this task &mdash; so the user can type /stop to abort</p>
+              <p class="tl">Store that cancel button, linked to this conversation</p>
+              <p class="tl">Find or create the conversation history for this user</p>
+              <p class="tl">If the conversation is getting too long, archive old parts to save memory</p>
+              <p class="tl">Get the recent conversation history</p>
+              <p class="tl">Package up: system instructions + memory + history + the new message</p>
+              <p class="tl">Send it all to the AI and start streaming the response back</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 5: Quiz -->
+      <section class="screen animate-in" id="quiz-1">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-b">
+            <h3 class="quiz-question">You're building a similar AI assistant and it sometimes "forgets" what users said 5 minutes ago. Based on what you learned, where would you look first?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The LLM provider &mdash; the AI model might be broken</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The memory consolidation &mdash; old messages might be getting archived too aggressively</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The Feishu channel &mdash; messages might be getting lost in transit</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> The memory consolidator archives old messages when the conversation gets too long. If it's too aggressive, recent context gets archived before the AI sees it." data-incorrect-text="<strong>Not quite.</strong> The memory consolidator is the component that decides which messages to keep vs. archive. If recent messages disappear, its token threshold (context window / 2) might be too low."></div>
+          </div>
+
+          <div class="quiz-question-block" data-correct="option-c">
+            <h3 class="quiz-question">Why does the agent create a "cancel button" (context.WithCancel) for each message?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>To restart the entire server if something crashes</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>To automatically time out after 60 seconds</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>So users can type /stop to abort a task that's taking too long</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> The cancel function is stored with the session ID. When a user types /stop, the agent looks up their cancel function and calls it, which stops the AI mid-thought." data-incorrect-text="<strong>Not quite.</strong> The cancel button is linked to the user's session. When they type /stop, the agent calls this cancel function to gracefully abort the current AI task."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-1')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-1')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 2: Meet the Cast -->
+<!-- ====================================================================== -->
+<section class="module" id="module-2" style="background: var(--color-bg);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">02</span>
+      <h1 class="module-title">Meet the Cast of Characters</h1>
+      <p class="module-subtitle">The key components and what each one is responsible for</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: Overview -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A Team, Not a Monolith</h2>
+        <p>Nanobot-Eino isn't one giant blob of code. It's a team of specialists, each with a clear job. Think of a hospital: the receptionist greets patients, the nurse takes vitals, the doctor diagnoses, the pharmacist fills prescriptions. They don't overlap &mdash; and that's the point.</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2);">A</div>
+            <div>
+              <strong>Agent</strong>
+              <p>The brain &mdash; runs the think-act-observe loop, decides when to use tools</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4);">B</div>
+            <div>
+              <strong>MessageBus</strong>
+              <p>The postal service &mdash; routes messages between channels and the agent</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1);">F</div>
+            <div>
+              <strong>Feishu Channel</strong>
+              <p>The receptionist &mdash; translates between Feishu's format and the system's format</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-3);">M</div>
+            <div>
+              <strong>Memory &amp; Session</strong>
+              <p>The filing cabinet &mdash; stores long-term facts and conversation history</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-5);">T</div>
+            <div>
+              <strong>Tools</strong>
+              <p>The toolkit &mdash; web search, file operations, shell commands, scheduling</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: File Tree -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Where They Live in the Code</h2>
+        <p>Each character lives in its own <span class="term" data-definition="A package in Go is a folder of related code files. It's how Go organizes code into modules. Think of it like a drawer in a filing cabinet &mdash; all the memory-related code goes in the 'memory' drawer.">package</span> under the <code>pkg/</code> directory:</p>
+
+        <div class="file-tree">
+          <div class="ft-folder ft-root open">
+            <span class="ft-name">pkg/</span>
+            <span class="ft-desc">All the core logic</span>
+            <div class="ft-children">
+              <div class="ft-folder">
+                <span class="ft-name">agent/</span>
+                <span class="ft-desc">The brain &mdash; ReAct loop, session handling, commands</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">bus/</span>
+                <span class="ft-desc">Message routing between components</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">channels/</span>
+                <span class="ft-desc">External messaging adapters (Feishu)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">memory/</span>
+                <span class="ft-desc">Persistent memory (MEMORY.md + HISTORY.md)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">session/</span>
+                <span class="ft-desc">Conversation history in JSONL files</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">tools/</span>
+                <span class="ft-desc">14 files covering web, filesystem, shell, cron, MCP</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">model/</span>
+                <span class="ft-desc">LLM provider abstraction (11+ providers)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">skill/</span>
+                <span class="ft-desc">Extensible skill system (always-on + on-demand)</span>
+              </div>
+              <div class="ft-folder">
+                <span class="ft-name">app/</span>
+                <span class="ft-desc">Wires everything together &mdash; orchestration</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#x1f4a1;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Separation of Concerns</strong>
+            <p>This pattern &mdash; giving each component its own folder and clear responsibility &mdash; is called "separation of concerns." It means you can change how memory works without touching the agent, or swap Feishu for Slack without rewriting the brain. When telling AI to build something, say "keep the X logic in its own package" &mdash; it'll generate cleaner code.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Architecture Diagram -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">How They Connect</h2>
+        <p>Click any component to see what it does:</p>
+
+        <div class="arch-diagram" id="arch1">
+          <div class="arch-zones">
+            <div class="arch-zone" style="border-color: var(--color-actor-1);">
+              <div class="arch-zone-label">External World</div>
+              <div class="arch-components">
+                <div class="arch-component" data-desc="Feishu WebSocket channel. Receives messages from your Lark chat, deduplicates them, filters by sender allowlist, and converts them to a standard InboundMessage format. Sends AI responses back as rich Markdown cards." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f4ac;</div>
+                  <span>Feishu Channel</span>
+                </div>
+                <div class="arch-component" data-desc="LLM providers (OpenAI, Claude, DeepSeek, Gemini, Ollama, and 6 more). The model factory auto-detects which provider to use based on your API key and base URL. Supports both native tool-calling and fallback prompt-based tool use." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f9e0;</div>
+                  <span>LLM Providers</span>
+                </div>
+                <div class="arch-component" data-desc="MCP (Model Context Protocol) servers. External tool servers that the agent connects to lazily on first message. They provide additional tools beyond the built-in ones. Think of them as plug-in extensions." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f50c;</div>
+                  <span>MCP Servers</span>
+                </div>
+              </div>
+            </div>
+            <div class="arch-zone" style="border-color: var(--color-actor-2);">
+              <div class="arch-zone-label">Core System</div>
+              <div class="arch-components">
+                <div class="arch-component" data-desc="The MessageBus &mdash; async pub/sub routing. Inbound channel carries messages from the outside world to the agent. Outbound channel carries AI responses back to the channels. Panic-safe with defer recovery." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f4ee;</div>
+                  <span>MessageBus</span>
+                </div>
+                <div class="arch-component" data-desc="The Agent &mdash; the brain. Runs the ReAct (Reason + Act) loop powered by the Eino framework. Handles commands like /new, /stop, /restart. Lazy-loads MCP tools. Wraps all tools with progress reporting and result truncation." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f916;</div>
+                  <span>Agent</span>
+                </div>
+                <div class="arch-component" data-desc="RunInboundLoop &mdash; the dispatcher. Spawns one worker goroutine per session. Messages for the same session are processed in order. Different sessions run in parallel. Handles retries on transient errors." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f504;</div>
+                  <span>RunLoop</span>
+                </div>
+              </div>
+            </div>
+            <div class="arch-zone" style="border-color: var(--color-actor-3);">
+              <div class="arch-zone-label">Persistence & Tools</div>
+              <div class="arch-components">
+                <div class="arch-component" data-desc="Two-layer memory: MEMORY.md (long-term facts, overwritten each time) and HISTORY.md (append-only timestamped log). When conversations get too long, old messages are summarized by an LLM and archived here." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f4be;</div>
+                  <span>Memory</span>
+                </div>
+                <div class="arch-component" data-desc="Session manager. Stores conversation history as JSONL (one JSON object per line) files. Tracks where the last memory consolidation happened so only new messages are sent to the LLM." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f4cb;</div>
+                  <span>Sessions</span>
+                </div>
+                <div class="arch-component" data-desc="Built-in tools: read/write/edit files, list directories, web search (5 providers), web fetch, shell execution (with safety guards), message sending, cron scheduling, and subagent spawning." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x1f6e0;</div>
+                  <span>Tools</span>
+                </div>
+                <div class="arch-component" data-desc="Cron service for scheduled tasks. Supports one-time triggers ('at 9am'), interval-based ('every 30 minutes'), and cron expressions ('0 9 * * 1' for every Monday 9am). Jobs persist across restarts." onclick="showArchDesc(this)">
+                  <div class="arch-icon">&#x23f0;</div>
+                  <span>Cron</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="arch-description" id="arch1-desc">Click any component to learn what it does</div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Code Translation - Agent struct -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Agent's Blueprint</h2>
+        <p>Here's the <span class="term" data-definition="A struct (short for 'structure') in Go is like a blueprint or form. It groups related data together under one name. Think of it like a contact card: it has fields for name, phone, email, etc. In code, a struct defines what data a component holds.">struct</span> that defines the Agent &mdash; all the things it holds in memory while running:</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">type</span> <span class="code-type">Agent</span> <span class="code-keyword">struct</span> {
+  mu           <span class="code-type">sync.RWMutex</span>
+  reactAgent   *<span class="code-type">react.Agent</span>
+  consolidator *<span class="code-type">memory.MemoryConsolidator</span>
+  promptLoader *<span class="code-type">prompt.Loader</span>
+  cronService  *<span class="code-type">cron.CronService</span>
+  skillManager *<span class="code-type">skill.Manager</span>
+  sessions     *<span class="code-type">session.SessionManager</span>
+  toolCfg      <span class="code-type">tools.ToolConfig</span>
+  activeTasks  <span class="code-type">sync.Map</span>
+  mcpConfigs   []<span class="code-type">tools.MCPServerConfig</span>
+  mcpOnce      <span class="code-type">sync.Once</span>
+}</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">This defines what the Agent "knows about" &mdash; its blueprint...</p>
+              <p class="tl">A safety lock to prevent two tasks from changing state at once</p>
+              <p class="tl">The actual AI reasoning engine (the ReAct think-act-observe loop)</p>
+              <p class="tl">Handles archiving old conversations to free up space</p>
+              <p class="tl">Loads prompt templates (system instructions, user context, etc.)</p>
+              <p class="tl">Manages scheduled tasks (reminders, recurring jobs)</p>
+              <p class="tl">Loads and manages skills (like mini-apps the agent can use)</p>
+              <p class="tl">Keeps track of all conversation histories</p>
+              <p class="tl">Configuration for available tools</p>
+              <p class="tl">A map of "cancel buttons" &mdash; one per active task, for /stop support</p>
+              <p class="tl">External tool server configs (connected lazily)</p>
+              <p class="tl">A "do once" guard to ensure MCP servers connect only once</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 5: Quiz -->
+      <section class="screen animate-in" id="quiz-2">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-a">
+            <h3 class="quiz-question">You want to add Slack support to Nanobot-Eino. Which component would you create?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>A new channel adapter in pkg/channels/ that converts Slack messages to InboundMessage format</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Modify the Agent to understand Slack's message format directly</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Add Slack code to the MessageBus so it can route Slack messages</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> The channel pattern means you just add a new adapter (like FeishuChannel but for Slack). It publishes to the same MessageBus, so the Agent doesn't need to change at all." data-incorrect-text="<strong>Not quite.</strong> The beauty of the channel pattern is that the Agent doesn't know or care where messages come from. You'd create a SlackChannel in pkg/channels/ that converts Slack's format to InboundMessage and publishes to the bus."></div>
+          </div>
+
+          <div class="quiz-question-block" data-correct="option-b">
+            <h3 class="quiz-question">Why does the Agent hold an <code>mcpOnce sync.Once</code> field?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>To ensure the agent only processes one message at a time</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>To connect MCP tool servers exactly once, on the first real message</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>To reset the agent after each conversation</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> sync.Once is a Go primitive that guarantees a function runs exactly one time, no matter how many goroutines call it. This way, startup is fast (no waiting for MCP), and the connection happens lazily on first use." data-incorrect-text="<strong>Not quite.</strong> sync.Once is Go's way of saying 'do this exactly once, ever.' The agent uses it for lazy MCP connection &mdash; it doesn't block startup, but connects the external tool servers the first time a user actually sends a message."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-2')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-2')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 3: How the Pieces Talk -->
+<!-- ====================================================================== -->
+<section class="module" id="module-3" style="background: var(--color-bg-warm);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">03</span>
+      <h1 class="module-title">How the Pieces Talk to Each Other</h1>
+      <p class="module-subtitle">The MessageBus, sessions, and the per-session worker pattern</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: MessageBus Metaphor -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Airport Control Tower</h2>
+        <p>Imagine an airport control tower. Planes (messages) arrive from different airlines (channels). The tower doesn't fly the planes &mdash; it routes them to the right runway. If a runway is busy, planes queue up. If a plane needs to depart, the tower clears it.</p>
+        <p>That's what the <span class="term" data-definition="Pub/Sub stands for 'publish/subscribe.' It's a messaging pattern where senders (publishers) broadcast messages without knowing who's listening, and receivers (subscribers) get messages without knowing who sent them. It's like a radio station: the DJ broadcasts, and anyone can tune in.">pub/sub</span> MessageBus does. Channels publish inbound messages. The agent subscribes and processes them. The agent publishes outbound responses. Channels subscribe and deliver them.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">&#x2139;&#xfe0f;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Why Not Direct Calls?</strong>
+            <p>The bus keeps components decoupled. The Feishu channel doesn't import the Agent package, and the Agent doesn't import Feishu. This makes testing easy (mock the bus) and adding channels trivial (just publish to the bus).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: Group Chat Animation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">A Conversation Between Components</h2>
+        <p>Let's watch the components talk when a user sends "Search for Go concurrency patterns":</p>
+
+        <div class="chat-window" id="chat1">
+          <div class="chat-header">Component Group Chat</div>
+          <div class="chat-messages" id="chat1-messages">
+            <div class="chat-message" data-msg="0" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1);">F</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1);">Feishu Channel</span>
+                <p>New message from user_123: "Search for Go concurrency patterns"</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="1" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-4);">B</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-4);">MessageBus</span>
+                <p>Got it. Routing to the inbound queue. Session: feishu_chat_456</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="2" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2);">A</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2);">Agent</span>
+                <p>Picking up the message. Let me build the prompt... System instructions + memory + history + this new input.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="3" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3);">L</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3);">LLM (DeepSeek)</span>
+                <p>I need to search the web first. Calling tool: web_search("Go concurrency patterns")</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="4" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-5);">T</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-5);">Web Search Tool</span>
+                <p>Found 5 results. Here's the top 3: goroutines, channels, sync.WaitGroup...</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="5" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-3);">L</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-3);">LLM (DeepSeek)</span>
+                <p>Great, now I have enough info. Here's my response about Go concurrency patterns...</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="6" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-2);">A</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-2);">Agent</span>
+                <p>Saved turn to session history. Publishing response to outbound bus.</p>
+              </div>
+            </div>
+            <div class="chat-message" data-msg="7" style="display:none">
+              <div class="chat-avatar" style="background: var(--color-actor-1);">F</div>
+              <div class="chat-bubble">
+                <span class="chat-sender" style="color: var(--color-actor-1);">Feishu Channel</span>
+                <p>Formatting as a Markdown card and sending back to the chat. Done!</p>
+              </div>
+            </div>
+          </div>
+          <div class="chat-typing" id="chat1-typing" style="display:none">
+            <div class="chat-avatar" id="chat1-typing-avatar" style="background: var(--color-text-muted);">?</div>
+            <div class="chat-typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+          <div class="chat-controls">
+            <button onclick="chatNext('chat1')">Next Message</button>
+            <button onclick="chatPlayAll('chat1')">Play All</button>
+            <button onclick="chatReset('chat1')">Replay</button>
+            <span class="chat-progress" id="chat1-progress">0 / 8 messages</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Per-session workers -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">One Lane Per Conversation</h2>
+        <p>Here's a clever trick: the <span class="term" data-definition="RunInboundLoop is the main message processing loop. It reads messages from the bus and dispatches them to per-session worker goroutines. Think of it as the traffic controller that assigns each conversation to its own dedicated lane.">RunInboundLoop</span> creates one worker <span class="term" data-definition="A goroutine is Go's lightweight version of a thread. It's a function that runs concurrently (at the same time as other code) without blocking. They're extremely cheap &mdash; you can spawn millions. Think of them as tiny parallel workers that the Go runtime manages for you.">goroutine</span> per session. This means:</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2);">
+            <div class="pattern-icon" style="background: var(--color-actor-2); color: white; border-radius: 50%;">&#x2795;</div>
+            <h4 class="pattern-title">Parallel Across Sessions</h4>
+            <p class="pattern-desc">User A and User B get served at the same time. No waiting in line.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4);">
+            <div class="pattern-icon" style="background: var(--color-actor-4); color: white; border-radius: 50%;">&#x1f512;</div>
+            <h4 class="pattern-title">Serial Within a Session</h4>
+            <p class="pattern-desc">User A's messages are processed in order. No race conditions.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5);">
+            <div class="pattern-icon" style="background: var(--color-actor-5); color: white; border-radius: 50%;">&#x1f504;</div>
+            <h4 class="pattern-title">Auto-Retry on Errors</h4>
+            <p class="pattern-desc">If something fails transiently, it waits 2 seconds and tries again.</p>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#x1f4a1;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The Producer-Consumer Pattern</strong>
+            <p>This "one queue per consumer" approach is a classic <span class="term" data-definition="Concurrency is doing multiple things at the same time. It's different from parallelism (actually running simultaneously on multiple CPUs). Concurrency is about structure &mdash; organizing your code so tasks can progress independently, even if they take turns running on one CPU.">concurrency</span> pattern. When you tell an AI to "handle multiple users at once but keep each user's requests in order," this is the pattern it should reach for.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Code Translation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Session Worker Pattern</h2>
+        <p>Here's how <code>RunInboundLoop</code> creates per-session workers:</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">type</span> <span class="code-type">sessionQueue</span> <span class="code-keyword">struct</span> {
+  ch <span class="code-keyword">chan</span> <span class="code-type">bus.InboundMessage</span>
+}
+
+<span class="code-comment">// For each incoming message...</span>
+key := msg.Channel + <span class="code-string">":"</span> + msg.ChatID
+val, loaded := sessions.<span class="code-function">LoadOrStore</span>(
+  key, &amp;<span class="code-type">sessionQueue</span>{
+    ch: <span class="code-function">make</span>(<span class="code-keyword">chan</span> <span class="code-type">bus.InboundMessage</span>, <span class="code-number">16</span>),
+  },
+)
+q := val.(*<span class="code-type">sessionQueue</span>)
+
+<span class="code-keyword">if</span> !loaded {
+  wg.<span class="code-function">Add</span>(<span class="code-number">1</span>)
+  <span class="code-keyword">go</span> <span class="code-function">worker</span>(q)  <span class="code-comment">// new goroutine!</span>
+}
+q.ch &lt;- msg  <span class="code-comment">// enqueue</span></code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">A session queue &mdash; just a message inbox for one conversation...</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">When a message arrives...</p>
+              <p class="tl">Create a unique ID from channel + chat (e.g. "feishu:chat_456")</p>
+              <p class="tl">Look up (or create) the inbox for this conversation</p>
+              <p class="tl">The inbox holds up to 16 messages before blocking</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">If this is a brand new conversation we haven't seen before...</p>
+              <p class="tl">Track it in our "work counter"</p>
+              <p class="tl">Spin up a dedicated worker for this conversation!</p>
+              <p class="tl">Drop the message into the inbox (the worker will pick it up)</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 5: Quiz -->
+      <section class="screen animate-in" id="quiz-3">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-b">
+            <h3 class="quiz-question">Users report that when User A sends a complex request, User B's simple questions get delayed. What's likely wrong?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The MessageBus is too slow</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The per-session worker pattern isn't being used &mdash; all messages share one queue</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The LLM is overloaded</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> If all messages share one queue (no per-session workers), User A's long-running request blocks User B. The per-session pattern ensures each user has their own lane." data-incorrect-text="<strong>Not quite.</strong> The per-session worker pattern is the key here. Without it, all users share one queue, and a slow request blocks everyone. With it, each session gets its own goroutine."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-3')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-3')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 4: The Outside World -->
+<!-- ====================================================================== -->
+<section class="module" id="module-4" style="background: var(--color-bg);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">04</span>
+      <h1 class="module-title">Reaching the Outside World</h1>
+      <p class="module-subtitle">LLM providers, web tools, MCP servers, and the model factory</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: LLM Providers -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">One Brain, Eleven Options</h2>
+        <p>Imagine a translator agency where one request can go to any of 11 translators. Some are expensive but brilliant; others are cheap and fast. The agency picks the best one based on the client's budget and preference.</p>
+        <p>That's the model factory. Nanobot supports <strong>11+ <span class="term" data-definition="An LLM provider is a company or service that hosts and serves AI language models. Examples: OpenAI (GPT), Anthropic (Claude), DeepSeek, Google (Gemini). Each has different pricing, speed, and capabilities. You access them via API keys.">LLM providers</span></strong>:</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2);">
+            <div class="pattern-icon" style="background: var(--color-actor-2); color: white; border-radius: 50%;">&#x2601;&#xfe0f;</div>
+            <h4 class="pattern-title">OpenAI / Azure</h4>
+            <p class="pattern-desc">GPT-4, GPT-3.5. Azure variant auto-detected by API base URL.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3);">
+            <div class="pattern-icon" style="background: var(--color-actor-3); color: white; border-radius: 50%;">&#x1f9e0;</div>
+            <h4 class="pattern-title">Claude / DeepSeek</h4>
+            <p class="pattern-desc">Anthropic's Claude and DeepSeek's models. Strong reasoning.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5);">
+            <div class="pattern-icon" style="background: var(--color-actor-5); color: white; border-radius: 50%;">&#x1f310;</div>
+            <h4 class="pattern-title">Gemini / Ollama</h4>
+            <p class="pattern-desc">Google's Gemini or local models via Ollama. Run offline!</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4);">
+            <div class="pattern-icon" style="background: var(--color-actor-4); color: white; border-radius: 50%;">&#x1f680;</div>
+            <h4 class="pattern-title">Ark / QianFan / More</h4>
+            <p class="pattern-desc">ByteDance Ark, Baidu QianFan, SiliconFlow, OpenRouter.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: Tool Calling -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Tool Belt</h2>
+        <p>The AI doesn't just talk &mdash; it can <em>do things</em>. Each tool is a <span class="term" data-definition="A function the AI can call during its reasoning process. The LLM outputs a special 'tool call' message with the tool name and arguments. The agent then executes that function and feeds the result back to the LLM. It's how AI agents interact with the real world.">callable function</span> the LLM can invoke during its reasoning loop:</p>
+
+        <div class="icon-rows stagger-children">
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-2);">&#x1f310;</div>
+            <div>
+              <strong>web_search / web_fetch</strong>
+              <p>Search the web (Tavily, Brave, DuckDuckGo, Jina, Searxng) or fetch a full page as Markdown</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-5);">&#x1f4c1;</div>
+            <div>
+              <strong>read_file / write_file / edit_file / list_dir</strong>
+              <p>Filesystem operations with workspace restrictions for safety</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-1);">&#x1f4bb;</div>
+            <div>
+              <strong>exec</strong>
+              <p>Run shell commands with timeout, output limits, and deny/allow pattern guards</p>
+            </div>
+          </div>
+          <div class="icon-row animate-in">
+            <div class="icon-circle" style="background: var(--color-actor-4);">&#x23f0;</div>
+            <div>
+              <strong>cron / message / spawn</strong>
+              <p>Schedule tasks, send messages to channels, or delegate work to background sub-agents</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Tool Wrapper Code -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Tool Safety: The Wrapper</h2>
+        <p>Every tool is wrapped in a safety layer before the AI uses it. The wrapper does two things: <span class="term" data-definition="Truncation means cutting off data after a certain size limit. Like trimming a long email to fit in a text message. In Nanobot, tool results are truncated to 16KB to prevent blowing up the AI's context window.">truncation</span> (keep results under 16KB) and progress reporting (tell the UI what's happening):</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">func</span> <span class="code-function">WrapTools</span>(
+  inner []<span class="code-type">tool.InvokableTool</span>,
+  maxChars <span class="code-type">int</span>,
+  onProgress <span class="code-type">ToolProgressFunc</span>,
+) []<span class="code-type">tool.InvokableTool</span> {
+  out := <span class="code-function">make</span>([]<span class="code-type">tool.InvokableTool</span>, <span class="code-function">len</span>(inner))
+  <span class="code-keyword">for</span> i, t := <span class="code-keyword">range</span> inner {
+    out[i] = &amp;<span class="code-type">wrappedTool</span>{
+      inner:      t,
+      maxChars:   maxChars,
+      onProgress: onProgress,
+    }
+  }
+  <span class="code-keyword">return</span> out
+}</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Take a list of raw tools...</p>
+              <p class="tl">a maximum character limit (16,384 by default)...</p>
+              <p class="tl">and a progress reporting function...</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">Make a new list the same size...</p>
+              <p class="tl">For each tool in the original list...</p>
+              <p class="tl">Wrap it: same tool inside, but with a size limit and progress notifications added on top</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">Return the wrapped versions (the agent uses these instead of the raw ones)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-accent">
+          <div class="callout-icon">&#x1f4a1;</div>
+          <div class="callout-content">
+            <strong class="callout-title">The Decorator Pattern</strong>
+            <p>Wrapping a tool to add behavior (without changing it) is called the "decorator pattern." It's like putting a phone in a case &mdash; same phone, but now it's protected. When building AI agents, always wrap tools with safety limits so one bad API response can't flood the LLM's context.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Quiz -->
+      <section class="screen animate-in" id="quiz-4">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-c">
+            <h3 class="quiz-question">
+              <div class="scenario-block">
+                <div class="scenario-context">
+                  <span class="scenario-label">Scenario</span>
+                  <p>Your AI agent calls web_fetch on a very long webpage. The full page content is 200KB. Without the tool wrapper, what would happen?</p>
+                </div>
+              </div>
+            </h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Nothing &mdash; the LLM can handle any size input</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The page would load slowly but work fine</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The 200KB result would eat up the LLM's context window, leaving no room for the actual conversation</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> LLMs have a fixed context window (e.g. 128K tokens). A single 200KB tool result would consume a huge chunk of it, crowding out conversation history and system instructions. The 16KB truncation limit prevents this." data-incorrect-text="<strong>Not quite.</strong> LLMs have a limited context window. A 200KB result would consume too much of it, leaving no room for the conversation. That's why the wrapper truncates results to 16KB."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-4')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-4')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 5: The Clever Tricks -->
+<!-- ====================================================================== -->
+<section class="module" id="module-5" style="background: var(--color-bg-warm);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">05</span>
+      <h1 class="module-title">The Clever Engineering Tricks</h1>
+      <p class="module-subtitle">Memory consolidation, lazy loading, and graceful shutdown</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: Memory Consolidation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Notebook and the Journal</h2>
+        <p>Imagine you keep two notebooks. One is a <strong>cheat sheet</strong> &mdash; key facts you always need (birthdays, allergies, preferences). The other is a <strong>daily journal</strong> &mdash; a timestamped log of everything that happened. When your cheat sheet gets updated, old facts get replaced. The journal only grows.</p>
+        <p>That's Nanobot's two-layer <span class="term" data-definition="Persistent memory means data that survives after the program stops. Unlike RAM (which is erased when you turn off the computer), persistent data is saved to disk &mdash; in files, databases, etc. Nanobot saves memory to MEMORY.md and HISTORY.md files.">persistent memory</span>:</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-3);">
+            <div class="pattern-icon" style="background: var(--color-accent-light); border-radius: 50%;">&#x1f4d3;</div>
+            <h4 class="pattern-title">MEMORY.md</h4>
+            <p class="pattern-desc">Long-term facts. Overwritten each time. "User prefers dark mode. User lives in Beijing."</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5);">
+            <div class="pattern-icon" style="background: var(--color-success-light); border-radius: 50%;">&#x1f4dc;</div>
+            <h4 class="pattern-title">HISTORY.md</h4>
+            <p class="pattern-desc">Append-only log. Timestamped entries. "[2024-03-15 14:30] Discussed Go patterns. User prefers channel-based concurrency."</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: Token-Aware Consolidation -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">When Conversations Get Too Long</h2>
+        <p>LLMs have a <span class="term" data-definition="The context window is the maximum amount of text an LLM can process at once. Think of it like the LLM's working memory &mdash; everything it can 'see' when generating a response. If your conversation exceeds this limit, older messages get dropped or must be summarized.">context window</span> &mdash; a maximum amount of text they can see at once. When a conversation fills up more than half the window, the consolidator kicks in:</p>
+
+        <div class="flow-animation" id="flow2">
+          <div class="flow-actors">
+            <div class="flow-actor" id="flow2-session">
+              <div class="flow-actor-icon" style="background: var(--color-actor-2);">S</div>
+              <span>Session</span>
+            </div>
+            <div class="flow-actor" id="flow2-consolidator">
+              <div class="flow-actor-icon" style="background: var(--color-actor-3);">C</div>
+              <span>Consolidator</span>
+            </div>
+            <div class="flow-actor" id="flow2-memory">
+              <div class="flow-actor-icon" style="background: var(--color-actor-5);">M</div>
+              <span>Memory Files</span>
+            </div>
+          </div>
+          <div class="flow-step-label" id="flow2-label">Click "Next Step" to see memory consolidation in action</div>
+          <div class="flow-controls">
+            <button onclick="flow2Next()">Next Step</button>
+            <button onclick="flow2Reset()">Restart</button>
+            <span class="flow-progress" id="flow2-progress">Step 0 / 6</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Consolidation Code -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">The Consolidation Algorithm</h2>
+        <p>Here's the actual decision logic:</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code><span class="code-keyword">func</span> (c *<span class="code-type">MemoryConsolidator</span>) <span class="code-function">MaybeConsolidateByTokens</span>(
+  ctx <span class="code-type">context.Context</span>, s *<span class="code-type">session.Session</span>,
+) {
+  target := c.contextWindowTokens / <span class="code-number">2</span>
+  estimated := c.<span class="code-function">estimatePromptTokens</span>(s)
+  <span class="code-keyword">if</span> estimated &lt;= target { <span class="code-keyword">return</span> }
+
+  <span class="code-keyword">for</span> round := <span class="code-keyword">range</span> <span class="code-number">maxConsolidationRounds</span> {
+    <span class="code-keyword">if</span> estimated &lt;= target { <span class="code-keyword">return</span> }
+    endIdx, _, found := c.<span class="code-function">PickConsolidationBoundary</span>(
+      s, <span class="code-function">max</span>(<span class="code-number">1</span>, estimated-target),
+    )
+    <span class="code-keyword">if</span> !found { <span class="code-keyword">return</span> }
+    chunk := s.Messages[s.LastConsolidated:endIdx]
+    c.<span class="code-function">ConsolidateMessages</span>(ctx, chunk)
+  }
+}</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Maybe archive old messages to free up space...</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">Our goal: keep the prompt under half the context window</p>
+              <p class="tl">Roughly estimate how many tokens the full prompt uses (chars &divide; 3)</p>
+              <p class="tl">If we're under the limit, do nothing and exit</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">Try up to 5 rounds of consolidation...</p>
+              <p class="tl">If we're now under the limit, stop</p>
+              <p class="tl">Find a safe cut point (at a user message boundary)</p>
+              <p class="tl">so we archive enough tokens to get under the limit</p>
+              <p class="tl">If no safe boundary exists, give up</p>
+              <p class="tl">Grab the old messages from "last archived" to the cut point</p>
+              <p class="tl">Send them to the LLM to summarize and save to MEMORY.md + HISTORY.md</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Lazy Loading -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Lazy Loading: Connect Only When Needed</h2>
+        <p>MCP (external tool) servers aren't connected at startup &mdash; that would slow down boot time. Instead, they connect <strong>lazily</strong> on the first real message. Think of a vending machine that only warms up the coffee beans when someone actually orders coffee.</p>
+
+        <div class="translation-block">
+          <div class="translation-code">
+            <span class="translation-label">CODE</span>
+            <pre><code>a.mcpOnce.<span class="code-function">Do</span>(<span class="code-keyword">func</span>() {
+  <span class="code-keyword">for</span> _, cfg := <span class="code-keyword">range</span> a.mcpConfigs {
+    mcpTools, err := tools.<span class="code-function">ConnectMCPServer</span>(ctx, cfg)
+    <span class="code-keyword">if</span> err != <span class="code-keyword">nil</span> {
+      logAgent.<span class="code-function">Warn</span>(<span class="code-string">"MCP connection failed"</span>, <span class="code-string">"server"</span>, cfg.Name)
+      <span class="code-keyword">continue</span>
+    }
+    mcpInvokableTools = <span class="code-function">append</span>(mcpInvokableTools, mcpTools...)
+  }
+  <span class="code-comment">// Rebuild the agent with the new tools</span>
+  a.reactAgent = a.<span class="code-function">newReactAgent</span>(ctx, newBaseTools)
+})</code></pre>
+          </div>
+          <div class="translation-english">
+            <span class="translation-label">PLAIN ENGLISH</span>
+            <div class="translation-lines">
+              <p class="tl">Do this exactly once (even if called from multiple goroutines)...</p>
+              <p class="tl">For each external tool server in the config...</p>
+              <p class="tl">Try to connect to it</p>
+              <p class="tl">If connection fails...</p>
+              <p class="tl">Log a warning but keep going (don't crash)</p>
+              <p class="tl">Skip this server and try the next one</p>
+              <p class="tl">Add the new tools to our collection</p>
+              <p class="tl">&nbsp;</p>
+              <p class="tl">Rebuild the AI reasoning engine with the expanded tool set</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 5: Quiz -->
+      <section class="screen animate-in" id="quiz-5">
+        <h2 class="screen-heading">Check Your Understanding</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-a">
+            <h3 class="quiz-question">
+              <div class="scenario-block">
+                <div class="scenario-context">
+                  <span class="scenario-label">Scenario</span>
+                  <p>Your AI agent has a 128K token context window. A user has been chatting for an hour, and the conversation is now at 70K tokens. What should happen?</p>
+                </div>
+              </div>
+            </h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>The consolidator should archive old messages because 70K exceeds half of 128K (64K)</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Nothing &mdash; the conversation hasn't reached the 128K limit yet</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Delete the entire conversation and start fresh</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> The threshold is half the context window (64K). At 70K, consolidation kicks in, archiving enough old messages to get back under 64K. This leaves room for the AI's system prompt, tools, and the response." data-incorrect-text="<strong>Not quite.</strong> The consolidator triggers at half the context window (64K), not the full 128K. This headroom is crucial &mdash; the AI needs space for system instructions, tools description, and its response. At 70K, it would archive ~6K worth of old messages."></div>
+          </div>
+
+          <div class="quiz-question-block" data-correct="option-b">
+            <h3 class="quiz-question">Why does the consolidator cut at "user message boundaries" instead of just removing the oldest N tokens?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>It's faster that way</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Cutting mid-conversation (between a question and answer) would break the context</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>User messages are always shorter</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> A conversation is like a series of question-answer pairs. Cutting between a question and its answer would leave an orphaned answer that makes no sense. Cutting at a user boundary keeps complete exchanges together." data-incorrect-text="<strong>Not quite.</strong> Conversations are Q&A pairs. If you cut between a question and its answer, you'd have a dangling answer with no context. The boundary ensures complete exchanges are either kept together or archived together."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-5')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-5')">Try Again</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MODULE 6: The Big Picture -->
+<!-- ====================================================================== -->
+<section class="module" id="module-6" style="background: var(--color-bg);">
+  <div class="module-content">
+    <header class="module-header animate-in">
+      <span class="module-number">06</span>
+      <h1 class="module-title">The Big Picture</h1>
+      <p class="module-subtitle">Skills, subagents, cron jobs, and how it all comes together</p>
+    </header>
+
+    <div class="module-body">
+      <!-- Screen 1: Skills -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Skills: Plug-in Superpowers</h2>
+        <p>Think of skills like apps on your phone. Some are always running in the background (weather widget, notifications), while others open only when you tap them (camera, calculator).</p>
+        <p>Nanobot has 8 built-in <span class="term" data-definition="A skill in Nanobot is a self-contained capability described in a SKILL.md file with YAML frontmatter. Each skill has a name, description, and content. 'Always-on' skills are injected into every prompt. 'On-demand' skills are available but only loaded when the AI decides it needs them.">skills</span>:</p>
+
+        <div class="pattern-cards stagger-children">
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-1);">
+            <div class="pattern-icon" style="background: var(--color-accent-light); border-radius: 50%;">&#x1f4dd;</div>
+            <h4 class="pattern-title">Memory</h4>
+            <p class="pattern-desc">Always-on. Instructions for how to use the memory system.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-2);">
+            <div class="pattern-icon" style="background: var(--color-info-light); border-radius: 50%;">&#x26c5;</div>
+            <h4 class="pattern-title">Weather</h4>
+            <p class="pattern-desc">On-demand. Fetch current weather for a location.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-4);">
+            <div class="pattern-icon" style="background: #FFF3D6; border-radius: 50%;">&#x1f4cb;</div>
+            <h4 class="pattern-title">Summarize</h4>
+            <p class="pattern-desc">On-demand. Condense long content into key points.</p>
+          </div>
+          <div class="pattern-card animate-in" style="border-top: 3px solid var(--color-actor-5);">
+            <div class="pattern-icon" style="background: var(--color-success-light); border-radius: 50%;">&#x1f527;</div>
+            <h4 class="pattern-title">Skill Creator</h4>
+            <p class="pattern-desc">On-demand. Create new skills from natural language descriptions!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 2: Subagents -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Subagents: Delegation</h2>
+        <p>Sometimes the AI needs to do something that takes a long time &mdash; like researching a topic across 20 web pages. Instead of blocking the conversation, it spawns a <span class="term" data-definition="A subagent is an independent AI agent that runs in the background. The main agent delegates a task to it (like 'research this topic'), and the subagent works on it while the main agent continues chatting. When done, the subagent sends the results back via the message bus.">subagent</span> &mdash; a background worker with its own AI brain.</p>
+        <p>Think of a CEO who delegates a research task to an intern. The CEO keeps taking meetings while the intern works. When the intern finishes, they leave the report on the CEO's desk.</p>
+
+        <div class="callout callout-info">
+          <div class="callout-icon">&#x2139;&#xfe0f;</div>
+          <div class="callout-content">
+            <strong class="callout-title">Safety Guard</strong>
+            <p>Subagents have limited tool access &mdash; no message sending and no MCP connections. This prevents infinite loops where a subagent spawns another subagent that sends messages that trigger more agents.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: Cron Jobs -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Scheduled Tasks</h2>
+        <p>You can tell the assistant "remind me every Monday at 9am to review my weekly goals" and it actually works. The <span class="term" data-definition="Cron is a time-based scheduling system. The name comes from a Unix tool that runs commands on a schedule. A cron expression like '0 9 * * 1' means 'at 9:00 on every Monday.' Nanobot's cron service supports one-shot ('at 3pm'), interval ('every 30 min'), and full cron expressions.">cron</span> service supports three schedule types:</p>
+
+        <div class="step-cards stagger-children">
+          <div class="step-card animate-in">
+            <div class="step-num" style="background: var(--color-actor-1);">at</div>
+            <div class="step-body">
+              <strong>One-time trigger</strong>
+              <p>"At 3pm today" &mdash; runs once, then removed. Uses Go's time.AfterFunc under the hood.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num" style="background: var(--color-actor-2); font-size: 0.65rem;">every</div>
+            <div class="step-body">
+              <strong>Interval-based</strong>
+              <p>"Every 30 minutes" &mdash; repeats at fixed intervals. Converted to a cron expression internally.</p>
+            </div>
+          </div>
+          <div class="step-card animate-in">
+            <div class="step-num" style="background: var(--color-actor-3); font-size: 0.65rem;">cron</div>
+            <div class="step-body">
+              <strong>Cron expression</strong>
+              <p>"0 9 * * 1" &mdash; full cron syntax for complex schedules. Powered by robfig/cron.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 4: Full Architecture Flow -->
+      <section class="screen animate-in">
+        <h2 class="screen-heading">Everything Connected</h2>
+        <p>Here's the complete data flow &mdash; from your Feishu message to the AI's response, with memory, tools, and skills all working together:</p>
+
+        <div class="flow-steps" style="flex-direction: column; align-items: stretch;">
+          <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-3);">
+            <div class="flow-step" style="border: 2px solid var(--color-actor-1);">
+              <div class="flow-step-num" style="background: var(--color-actor-1);">1</div>
+              <p><strong>Feishu</strong><br>WebSocket event</p>
+            </div>
+            <div class="flow-arrow">&#x2192;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-4);">
+              <div class="flow-step-num" style="background: var(--color-actor-4);">2</div>
+              <p><strong>Bus</strong><br>Route inbound</p>
+            </div>
+            <div class="flow-arrow">&#x2192;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-2);">
+              <div class="flow-step-num" style="background: var(--color-actor-2);">3</div>
+              <p><strong>RunLoop</strong><br>Session worker</p>
+            </div>
+            <div class="flow-arrow">&#x2192;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-3);">
+              <div class="flow-step-num" style="background: var(--color-actor-3);">4</div>
+              <p><strong>Agent</strong><br>Build prompt</p>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: center; margin: var(--space-2) 0;">
+            <div class="flow-arrow" style="transform: rotate(90deg);">&#x2192;</div>
+          </div>
+          <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-3);">
+            <div class="flow-step" style="border: 2px solid var(--color-actor-1);">
+              <div class="flow-step-num" style="background: var(--color-actor-1);">8</div>
+              <p><strong>Feishu</strong><br>Markdown card</p>
+            </div>
+            <div class="flow-arrow">&#x2190;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-4);">
+              <div class="flow-step-num" style="background: var(--color-actor-4);">7</div>
+              <p><strong>Bus</strong><br>Route outbound</p>
+            </div>
+            <div class="flow-arrow">&#x2190;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-2);">
+              <div class="flow-step-num" style="background: var(--color-actor-2);">6</div>
+              <p><strong>Agent</strong><br>Save &amp; respond</p>
+            </div>
+            <div class="flow-arrow">&#x2190;</div>
+            <div class="flow-step" style="border: 2px solid var(--color-actor-5);">
+              <div class="flow-step-num" style="background: var(--color-actor-5);">5</div>
+              <p><strong>ReAct</strong><br>Think + Tools</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 5: Final Quiz -->
+      <section class="screen animate-in" id="quiz-6">
+        <h2 class="screen-heading">Final Challenge</h2>
+        <div class="quiz-container">
+          <div class="quiz-question-block" data-correct="option-b">
+            <h3 class="quiz-question">
+              <div class="scenario-block">
+                <div class="scenario-context">
+                  <span class="scenario-label">Scenario</span>
+                  <p>You're building a similar AI assistant from scratch. You want it to support both Telegram and Discord, have persistent memory, and use multiple LLM providers. Based on what you learned, what's the most important architectural decision?</p>
+                </div>
+              </div>
+            </h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Start with the most popular LLM provider and add more later</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Use a message bus to decouple channels from the agent, and define clear interfaces for providers</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Build it as one big file to keep it simple</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> Nanobot's key insight is the bus pattern + clear interfaces. Adding Telegram = just a new channel adapter. Adding a new LLM = just a new provider case. The agent doesn't change. Tell your AI coding tool: 'Use a message bus for channel routing and a factory pattern for LLM providers.'" data-incorrect-text="<strong>Not quite.</strong> The most impactful decision is decoupling. With a message bus, adding Telegram is just writing a new channel adapter. With provider interfaces, adding a new LLM is just a new factory case. The agent stays unchanged. This is what makes Nanobot extensible."></div>
+          </div>
+
+          <div class="quiz-question-block" data-correct="option-c">
+            <h3 class="quiz-question">A user says "my bot forgot something I told it yesterday." You've now learned how Nanobot's memory works. What would you check?</h3>
+            <div class="quiz-options">
+              <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Check if the LLM provider is working</span>
+              </button>
+              <button class="quiz-option" data-value="option-b" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Check if the Feishu channel is dropping messages</span>
+              </button>
+              <button class="quiz-option" data-value="option-c" onclick="selectOption(this)">
+                <div class="quiz-option-radio"></div>
+                <span>Check MEMORY.md (was the fact saved?) and the consolidator (was the session archived properly?)</span>
+              </button>
+            </div>
+            <div class="quiz-feedback" data-correct-text="<strong>Exactly!</strong> The two-layer memory system means you check: (1) Did the consolidator extract the fact into MEMORY.md? (2) Was it in HISTORY.md? (3) Was the consolidation LLM call successful, or did it fail and fall back to raw archival? Each layer gives you a different debugging clue." data-incorrect-text="<strong>Not quite.</strong> Memory loss is a memory system issue, not a channel or LLM issue. Check MEMORY.md (was the fact there?), HISTORY.md (was the session logged?), and the consolidator logs (did the LLM summarization fail?)."></div>
+          </div>
+
+          <button class="quiz-check-btn" onclick="checkQuiz('quiz-6')">Check Answers</button>
+          <button class="quiz-reset-btn" onclick="resetQuiz('quiz-6')">Try Again</button>
+        </div>
+      </section>
+
+      <!-- Screen 6: Closing -->
+      <section class="screen animate-in" style="text-align: center; padding: var(--space-16) 0;">
+        <h2 class="screen-heading">You've Completed the Course!</h2>
+        <p>You now understand how Nanobot-Eino works &mdash; from a Feishu message hitting a WebSocket, through the MessageBus, to the ReAct agent calling tools, saving to persistent memory, and streaming the response back.</p>
+
+        <div class="callout callout-accent" style="text-align: left;">
+          <div class="callout-icon">&#x1f393;</div>
+          <div class="callout-content">
+            <strong class="callout-title">What You Can Now Tell Your AI Coding Tool</strong>
+            <p>"Use a message bus to decouple channels from the agent." &bull; "Implement per-session worker goroutines for concurrency." &bull; "Add a two-layer memory system with consolidation." &bull; "Wrap all tools with result truncation." &bull; "Lazy-load external services with sync.Once." &bull; "Use cron expressions for scheduled tasks."</p>
+          </div>
+        </div>
+
+        <p style="margin-top: var(--space-8); color: var(--color-text-muted); font-size: var(--text-sm);">
+          Built from the <a href="https://github.com/wall/nanobot-eino" style="color: var(--color-accent);">nanobot-eino</a> codebase &bull; ~14,500 lines of Go &bull; 78 source files
+        </p>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+(function() {
+  'use strict';
+
+  // ========== SCROLL ANIMATIONS ==========
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.1 });
+
+  document.querySelectorAll('.animate-in').forEach(el => observer.observe(el));
+
+  // Stagger children
+  document.querySelectorAll('.stagger-children').forEach(parent => {
+    Array.from(parent.children).forEach((child, i) => {
+      child.style.setProperty('--stagger-index', i);
+    });
+  });
+
+  // ========== PROGRESS BAR ==========
+  const progressBar = document.getElementById('progressBar');
+  function updateProgress() {
+    const scrollTop = window.scrollY;
+    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+    progressBar.style.width = progress + '%';
+  }
+  window.addEventListener('scroll', () => requestAnimationFrame(updateProgress), { passive: true });
+
+  // ========== NAV DOTS ==========
+  const dots = document.querySelectorAll('.nav-dot');
+  const sections = [];
+  dots.forEach(dot => {
+    const target = document.getElementById(dot.dataset.target);
+    if (target) sections.push({ dot, target });
+    dot.addEventListener('click', () => {
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  function updateDots() {
+    const scrollPos = window.scrollY + window.innerHeight / 3;
+    let currentIdx = 0;
+    sections.forEach((s, i) => {
+      if (scrollPos >= s.target.offsetTop) currentIdx = i;
+    });
+    dots.forEach((d, i) => {
+      d.classList.remove('active');
+      if (i < currentIdx) d.classList.add('visited');
+      if (i === currentIdx) d.classList.add('active');
+    });
+  }
+  window.addEventListener('scroll', () => requestAnimationFrame(updateDots), { passive: true });
+
+  // ========== KEYBOARD NAV ==========
+  document.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    const allModules = document.querySelectorAll('.module, .hero-module');
+    let currentIdx = 0;
+    const scrollPos = window.scrollY + 100;
+    allModules.forEach((m, i) => { if (scrollPos >= m.offsetTop) currentIdx = i; });
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      if (currentIdx < allModules.length - 1) {
+        allModules[currentIdx + 1].scrollIntoView({ behavior: 'smooth' });
+        e.preventDefault();
+      }
+    }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      if (currentIdx > 0) {
+        allModules[currentIdx - 1].scrollIntoView({ behavior: 'smooth' });
+        e.preventDefault();
+      }
+    }
+  });
+
+  // ========== FLOW 1: Message Journey ==========
+  const flow1Steps = [
+    { highlight: 'flow1-feishu', label: '1. User types a message in Feishu. It arrives via WebSocket.' },
+    { highlight: 'flow1-bus', label: '2. Feishu Channel publishes an InboundMessage to the MessageBus.' },
+    { highlight: 'flow1-agent', label: '3. RunInboundLoop picks it up and routes to the session worker.' },
+    { highlight: 'flow1-agent', label: '4. Agent builds the prompt: system instructions + memory + history + tools + new message.' },
+    { highlight: 'flow1-llm', label: '5. The ReAct loop sends the prompt to the LLM. LLM decides: "I need to call web_search."' },
+    { highlight: 'flow1-tool', label: '6. The web_search tool executes, returns results. LLM sees them and formulates an answer.' },
+    { highlight: 'flow1-feishu', label: '7. Response streams back through the Bus to Feishu. User sees it as a Markdown card.' },
+  ];
+  let flow1Step = 0;
+  window.flow1Next = function() {
+    if (flow1Step >= flow1Steps.length) return;
+    const step = flow1Steps[flow1Step];
+    document.querySelectorAll('#flow1 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById(step.highlight).classList.add('active');
+    document.getElementById('flow1-label').textContent = step.label;
+    flow1Step++;
+    document.getElementById('flow1-progress').textContent = 'Step ' + flow1Step + ' / ' + flow1Steps.length;
+  };
+  window.flow1Reset = function() {
+    flow1Step = 0;
+    document.querySelectorAll('#flow1 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById('flow1-label').textContent = 'Click "Next Step" to begin';
+    document.getElementById('flow1-progress').textContent = 'Step 0 / ' + flow1Steps.length;
+  };
+
+  // ========== FLOW 2: Memory Consolidation ==========
+  const flow2Steps = [
+    { highlight: 'flow2-session', label: '1. Session has 70K tokens of conversation. Context window is 128K.' },
+    { highlight: 'flow2-consolidator', label: '2. Consolidator checks: 70K > 64K (half of 128K). Consolidation needed!' },
+    { highlight: 'flow2-consolidator', label: '3. Finds a safe cut point at a user-message boundary (e.g., message #42).' },
+    { highlight: 'flow2-consolidator', label: '4. Takes old messages [0..42] and sends them to the LLM: "Summarize this conversation."' },
+    { highlight: 'flow2-memory', label: '5. LLM extracts key facts → updates MEMORY.md. Appends a timestamped entry to HISTORY.md.' },
+    { highlight: 'flow2-session', label: '6. Session marks "LastConsolidated = 42". Future prompts only include messages 42+.' },
+  ];
+  let flow2Step = 0;
+  window.flow2Next = function() {
+    if (flow2Step >= flow2Steps.length) return;
+    const step = flow2Steps[flow2Step];
+    document.querySelectorAll('#flow2 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById(step.highlight).classList.add('active');
+    document.getElementById('flow2-label').textContent = step.label;
+    flow2Step++;
+    document.getElementById('flow2-progress').textContent = 'Step ' + flow2Step + ' / ' + flow2Steps.length;
+  };
+  window.flow2Reset = function() {
+    flow2Step = 0;
+    document.querySelectorAll('#flow2 .flow-actor').forEach(a => a.classList.remove('active'));
+    document.getElementById('flow2-label').textContent = 'Click "Next Step" to see memory consolidation in action';
+    document.getElementById('flow2-progress').textContent = 'Step 0 / ' + flow2Steps.length;
+  };
+
+  // ========== CHAT ANIMATIONS ==========
+  const chatStates = {};
+  function getChatState(id) {
+    if (!chatStates[id]) {
+      chatStates[id] = { index: 0, playing: false };
+    }
+    return chatStates[id];
+  }
+
+  const chatActors = {
+    '0': { color: 'var(--color-actor-1)', initials: 'F' },
+    '1': { color: 'var(--color-actor-4)', initials: 'B' },
+    '2': { color: 'var(--color-actor-2)', initials: 'A' },
+    '3': { color: 'var(--color-actor-3)', initials: 'L' },
+    '4': { color: 'var(--color-actor-5)', initials: 'T' },
+    '5': { color: 'var(--color-actor-3)', initials: 'L' },
+    '6': { color: 'var(--color-actor-2)', initials: 'A' },
+    '7': { color: 'var(--color-actor-1)', initials: 'F' },
+  };
+
+  window.chatNext = function(chatId) {
+    const state = getChatState(chatId);
+    const messages = document.querySelectorAll('#' + chatId + '-messages .chat-message');
+    if (state.index >= messages.length) return;
+
+    const msg = messages[state.index];
+    const msgIdx = msg.dataset.msg;
+    const actor = chatActors[msgIdx] || { color: 'var(--color-text-muted)', initials: '?' };
+
+    const typing = document.getElementById(chatId + '-typing');
+    const avatar = document.getElementById(chatId + '-typing-avatar');
+    avatar.textContent = actor.initials;
+    avatar.style.background = actor.color;
+    typing.style.display = 'flex';
+
+    setTimeout(() => {
+      typing.style.display = 'none';
+      msg.style.display = 'flex';
+      state.index++;
+      const total = messages.length;
+      document.getElementById(chatId + '-progress').textContent = state.index + ' / ' + total + ' messages';
+      // Auto-scroll chat
+      const container = document.getElementById(chatId + '-messages');
+      container.scrollTop = container.scrollHeight;
+    }, 700);
+  };
+
+  window.chatPlayAll = function(chatId) {
+    const state = getChatState(chatId);
+    if (state.playing) return;
+    state.playing = true;
+    const messages = document.querySelectorAll('#' + chatId + '-messages .chat-message');
+    const interval = setInterval(() => {
+      if (state.index >= messages.length) {
+        clearInterval(interval);
+        state.playing = false;
+        return;
+      }
+      chatNext(chatId);
+    }, 1100);
+  };
+
+  window.chatReset = function(chatId) {
+    const state = getChatState(chatId);
+    state.index = 0;
+    state.playing = false;
+    const messages = document.querySelectorAll('#' + chatId + '-messages .chat-message');
+    messages.forEach(m => { m.style.display = 'none'; });
+    document.getElementById(chatId + '-typing').style.display = 'none';
+    document.getElementById(chatId + '-progress').textContent = '0 / ' + messages.length + ' messages';
+  };
+
+  // ========== ARCHITECTURE DIAGRAM ==========
+  window.showArchDesc = function(el) {
+    const diagram = el.closest('.arch-diagram');
+    diagram.querySelectorAll('.arch-component').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    const desc = diagram.querySelector('.arch-description');
+    desc.textContent = el.dataset.desc;
+  };
+
+  // ========== QUIZ SYSTEM ==========
+  window.selectOption = function(btn) {
+    const block = btn.closest('.quiz-question-block');
+    block.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
+    btn.classList.add('selected');
+  };
+
+  window.checkQuiz = function(sectionId) {
+    const container = document.getElementById(sectionId);
+    const questions = container.querySelectorAll('.quiz-question-block');
+
+    questions.forEach(q => {
+      const selected = q.querySelector('.quiz-option.selected');
+      const feedbackEl = q.querySelector('.quiz-feedback');
+      const correctValue = q.dataset.correct;
+
+      if (!selected) {
+        feedbackEl.innerHTML = 'Pick an answer first!';
+        feedbackEl.className = 'quiz-feedback show error';
+        return;
+      }
+
+      if (selected.dataset.value === correctValue) {
+        selected.classList.add('correct');
+        feedbackEl.innerHTML = feedbackEl.dataset.correctText;
+        feedbackEl.className = 'quiz-feedback show success';
+      } else {
+        selected.classList.add('incorrect');
+        const correctBtn = q.querySelector('[data-value="' + correctValue + '"]');
+        if (correctBtn) correctBtn.classList.add('correct');
+        feedbackEl.innerHTML = feedbackEl.dataset.incorrectText;
+        feedbackEl.className = 'quiz-feedback show error';
+      }
+      q.querySelectorAll('.quiz-option').forEach(o => { o.disabled = true; });
+    });
+  };
+
+  window.resetQuiz = function(sectionId) {
+    const container = document.getElementById(sectionId);
+    container.querySelectorAll('.quiz-option').forEach(o => {
+      o.classList.remove('selected', 'correct', 'incorrect');
+      o.disabled = false;
+    });
+    container.querySelectorAll('.quiz-feedback').forEach(f => {
+      f.className = 'quiz-feedback';
+      f.innerHTML = '';
+    });
+  };
+
+  // ========== GLOSSARY TOOLTIPS ==========
+  let activeTooltip = null;
+
+  function positionTooltip(term, tip) {
+    const rect = term.getBoundingClientRect();
+    const tipWidth = 300;
+    let left = rect.left + rect.width / 2 - tipWidth / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tipWidth - 8));
+
+    document.body.appendChild(tip);
+    const tipHeight = tip.offsetHeight;
+
+    if (rect.top - tipHeight - 8 < 0) {
+      tip.style.top = (rect.bottom + 8) + 'px';
+      tip.classList.add('flip');
+    } else {
+      tip.style.top = (rect.top - tipHeight - 8) + 'px';
+      tip.classList.remove('flip');
+    }
+    tip.style.left = left + 'px';
+  }
+
+  document.querySelectorAll('.term').forEach(term => {
+    const tip = document.createElement('span');
+    tip.className = 'term-tooltip';
+    tip.textContent = term.dataset.definition;
+
+    term.addEventListener('mouseenter', () => {
+      if (activeTooltip && activeTooltip !== tip) {
+        activeTooltip.classList.remove('visible');
+        if (activeTooltip.parentNode) activeTooltip.remove();
+      }
+      positionTooltip(term, tip);
+      requestAnimationFrame(() => tip.classList.add('visible'));
+      activeTooltip = tip;
+    });
+
+    term.addEventListener('mouseleave', () => {
+      tip.classList.remove('visible');
+      setTimeout(() => { if (!tip.classList.contains('visible') && tip.parentNode) tip.remove(); }, 150);
+      activeTooltip = null;
+    });
+
+    term.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activeTooltip && activeTooltip !== tip) {
+        activeTooltip.classList.remove('visible');
+        if (activeTooltip.parentNode) activeTooltip.remove();
+      }
+      if (tip.classList.contains('visible')) {
+        tip.classList.remove('visible');
+        if (tip.parentNode) tip.remove();
+        activeTooltip = null;
+      } else {
+        positionTooltip(term, tip);
+        requestAnimationFrame(() => tip.classList.add('visible'));
+        activeTooltip = tip;
+      }
+    });
+  });
+
+  document.addEventListener('click', () => {
+    if (activeTooltip) {
+      activeTooltip.classList.remove('visible');
+      if (activeTooltip.parentNode) activeTooltip.remove();
+      activeTooltip = null;
+    }
+  });
+
+  // Initial calls
+  updateProgress();
+  updateDots();
+
+})();
+</script>
+
+</body>
+</html>
