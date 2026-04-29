@@ -9,6 +9,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// ToolResultMaxChars is the default truncation limit applied by WrapTools to
+// each tool's result before it is fed back to the LLM.
 const ToolResultMaxChars = 16000
 const toolFailureHint = "\n\n[Analyze the error above and try a different approach.]"
 

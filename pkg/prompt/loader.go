@@ -9,14 +9,19 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// Loader reads the prompt files (SOUL.md, USER.md, TOOLS.md, AGENTS.md, and
+// optionally HEARTBEAT.md) from a base directory.
 type Loader struct {
 	baseDir string
 }
 
+// NewLoader returns a Loader that reads prompts from baseDir.
 func NewLoader(baseDir string) *Loader {
 	return &Loader{baseDir: baseDir}
 }
 
+// BuildSystemMessages composes the prompt files into a single system message
+// for the agent. HEARTBEAT.md is appended only when present.
 func (l *Loader) BuildSystemMessages(ctx context.Context) ([]*schema.Message, error) {
 	soul, err := l.readFile("SOUL.md")
 	if err != nil {

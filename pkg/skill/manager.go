@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// SkillMetadata is the YAML front-matter at the top of a skill file.
 type SkillMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
@@ -19,6 +20,8 @@ type SkillMetadata struct {
 	Metadata    string `yaml:"metadata,omitempty"`
 }
 
+// NanobotMeta is the nanobot-specific extension block parsed from a skill's
+// metadata JSON.
 type NanobotMeta struct {
 	Emoji    string            `json:"emoji,omitempty"`
 	Always   bool              `json:"always,omitempty"`
@@ -27,11 +30,15 @@ type NanobotMeta struct {
 	Install  []InstallMeta     `json:"install,omitempty"`
 }
 
+// RequirementsMeta lists the binaries and environment variables a skill
+// expects to be available before it runs.
 type RequirementsMeta struct {
 	Bins []string `json:"bins,omitempty"`
 	Env  []string `json:"env,omitempty"`
 }
 
+// InstallMeta describes one installation step for a skill (Homebrew formula,
+// pip package, ...).
 type InstallMeta struct {
 	ID      string `json:"id"`
 	Kind    string `json:"kind"`
@@ -40,6 +47,8 @@ type InstallMeta struct {
 	Package string `json:"package,omitempty"`
 }
 
+// Skill is one loaded skill: parsed metadata, full markdown body, and the
+// origin (workspace overrides builtin).
 type Skill struct {
 	Meta    SkillMetadata
 	Content string
@@ -47,12 +56,16 @@ type Skill struct {
 	Source  string // "workspace" or "builtin"
 }
 
+// Manager loads and serves skills from a workspace directory and a builtin
+// directory.
 type Manager struct {
 	workspaceSkillsDir string
 	builtinSkillsDir   string
 	skills             map[string]*Skill
 }
 
+// NewManager returns a Manager that loads skills from
+// workspaceDir/skills and builtinDir.
 func NewManager(workspaceDir, builtinDir string) *Manager {
 	return &Manager{
 		workspaceSkillsDir: filepath.Join(workspaceDir, "skills"),
@@ -61,6 +74,8 @@ func NewManager(workspaceDir, builtinDir string) *Manager {
 	}
 }
 
+// LoadSkills (re)scans the workspace and builtin directories. Workspace
+// skills shadow builtin ones with the same name.
 func (m *Manager) LoadSkills() error {
 	m.skills = make(map[string]*Skill)
 
@@ -158,10 +173,12 @@ func parseFrontmatter(block string) SkillMetadata {
 	return meta
 }
 
+// GetSkill returns the skill with the given name, or nil when not loaded.
 func (m *Manager) GetSkill(name string) *Skill {
 	return m.skills[name]
 }
 
+// ListSkills returns every loaded skill regardless of availability.
 func (m *Manager) ListSkills() []*Skill {
 	list := make([]*Skill, 0, len(m.skills))
 	for _, s := range m.skills {
@@ -196,6 +213,8 @@ func (m *Manager) LoadSkill(name string) string {
 	return string(data)
 }
 
+// GetAlwaysSkills returns the names of skills marked as always-on (whose
+// requirements are also met).
 func (m *Manager) GetAlwaysSkills() []string {
 	var result []string
 	for _, sk := range m.skills {
@@ -209,6 +228,8 @@ func (m *Manager) GetAlwaysSkills() []string {
 	return result
 }
 
+// LoadSkillsForContext concatenates the bodies of the named skills into one
+// markdown blob ready to be injected into the system prompt.
 func (m *Manager) LoadSkillsForContext(names []string) string {
 	var parts []string
 	for _, name := range names {
@@ -239,6 +260,8 @@ func stripFrontmatter(content string) string {
 	return content
 }
 
+// BuildSkillsSummary renders an XML <skills> block describing every loaded
+// skill, including availability and install hints.
 func (m *Manager) BuildSkillsSummary() string {
 	allSkills := m.ListSkills()
 	if len(allSkills) == 0 {
@@ -301,6 +324,7 @@ func (m *Manager) GetSkillMetadata(name string) map[string]string {
 	return result
 }
 
+// BuiltinSkillsDir returns the path of the builtin skills directory.
 func (m *Manager) BuiltinSkillsDir() string {
 	return m.builtinSkillsDir
 }

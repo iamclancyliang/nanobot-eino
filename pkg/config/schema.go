@@ -11,10 +11,13 @@ type Duration struct {
 	time.Duration
 }
 
+// MarshalJSON encodes Duration as its string form (e.g. "30m").
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.Duration.String())
 }
 
+// UnmarshalJSON accepts either a duration string ("30m") or a number of
+// seconds. An empty string decodes to zero.
 func (d *Duration) UnmarshalJSON(b []byte) error {
 	if string(b) == "null" {
 		return nil
@@ -51,6 +54,8 @@ type Config struct {
 	Trace     TracingConfig              `json:"trace"`
 }
 
+// AgentConfig holds the runtime parameters for the agent loop and the
+// default model selection.
 type AgentConfig struct {
 	PromptDir           string  `json:"promptDir"`
 	BuiltinSkillsDir    string  `json:"builtinSkillsDir"`
@@ -71,6 +76,7 @@ type ProviderConfig struct {
 	ExtraHeaders map[string]string `json:"extraHeaders,omitempty"`
 }
 
+// ChannelsConfig groups the configuration for every supported channel.
 type ChannelsConfig struct {
 	SendProgress  bool                `json:"sendProgress,omitempty"`
 	SendToolHints bool                `json:"sendToolHints,omitempty"`
@@ -78,6 +84,8 @@ type ChannelsConfig struct {
 	Extra         map[string]any      `json:"extra,omitempty"`
 }
 
+// FeishuChannelConfig holds the credentials and access policy for the
+// Feishu (Lark) channel.
 type FeishuChannelConfig struct {
 	AppID             string `json:"appId"`
 	AppSecret         string `json:"appSecret"`
@@ -87,11 +95,13 @@ type FeishuChannelConfig struct {
 	GroupPolicy       string   `json:"groupPolicy,omitempty"`
 }
 
+// GatewayConfig groups gateway-side services (heartbeat, cron).
 type GatewayConfig struct {
 	Heartbeat HeartbeatConfig   `json:"heartbeat"`
 	Cron      CronGatewayConfig `json:"cron"`
 }
 
+// HeartbeatConfig configures the heartbeat scheduler.
 type HeartbeatConfig struct {
 	Enabled  *bool    `json:"enabled,omitempty"`
 	Path     string   `json:"path"`
@@ -106,10 +116,12 @@ func (h *HeartbeatConfig) IsEnabled() bool {
 	return *h.Enabled
 }
 
+// CronGatewayConfig configures persistence for the cron gateway.
 type CronGatewayConfig struct {
 	StorePath string `json:"storePath"`
 }
 
+// ToolsConfig groups tool subsystem configuration.
 type ToolsConfig struct {
 	Workspace           string      `json:"workspace"`
 	RestrictToWorkspace bool        `json:"restrictToWorkspace"`
@@ -119,11 +131,13 @@ type ToolsConfig struct {
 	MCP                 []MCPConfig `json:"mcp,omitempty"`
 }
 
+// WebConfig configures web-related tools (HTTP proxy, search).
 type WebConfig struct {
 	Proxy  string          `json:"proxy,omitempty"`
 	Search WebSearchConfig `json:"search"`
 }
 
+// WebSearchConfig configures the web_search tool's upstream provider.
 type WebSearchConfig struct {
 	Provider   string `json:"provider"`
 	APIKey     string `json:"apiKey,omitempty"`
@@ -131,6 +145,7 @@ type WebSearchConfig struct {
 	MaxResults int    `json:"maxResults,omitempty"`
 }
 
+// ExecConfig configures the shell exec tool's safety limits.
 type ExecConfig struct {
 	Timeout       Duration `json:"timeout"`
 	MaxOutput     int      `json:"maxOutput,omitempty"`
@@ -139,6 +154,7 @@ type ExecConfig struct {
 	PathAppend    string   `json:"pathAppend,omitempty"`
 }
 
+// MCPConfig describes one MCP (Model Context Protocol) server connection.
 type MCPConfig struct {
 	Name         string            `json:"name"`
 	Type         string            `json:"type,omitempty"`

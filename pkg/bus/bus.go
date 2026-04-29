@@ -10,6 +10,8 @@ import (
 
 var logBus = slog.With("module", "bus")
 
+// InboundMessage is a message received from a channel and dispatched into
+// the agent for processing.
 type InboundMessage struct {
 	Channel            string
 	SenderID           string
@@ -21,6 +23,8 @@ type InboundMessage struct {
 	SessionKeyOverride string
 }
 
+// SessionKey returns the session identifier for this message. It uses
+// SessionKeyOverride when set, otherwise "<channel>:<chat_id>".
 func (m *InboundMessage) SessionKey() string {
 	if m.SessionKeyOverride != "" {
 		return m.SessionKeyOverride
@@ -39,6 +43,8 @@ func ExtractReplyTo(metadata map[string]any) string {
 	return ""
 }
 
+// OutboundMessage is a message produced by the agent to be delivered through
+// a channel.
 type OutboundMessage struct {
 	Channel  string
 	ChatID   string
@@ -48,6 +54,8 @@ type OutboundMessage struct {
 	Metadata map[string]any
 }
 
+// MessageBus is a buffered in-memory bus that decouples channel adapters from
+// the agent. Channels publish inbound messages and consume outbound messages.
 type MessageBus struct {
 	inbound       chan *InboundMessage
 	outbound      chan *OutboundMessage
@@ -55,6 +63,8 @@ type MessageBus struct {
 	outboundOnce  sync.Once
 }
 
+// NewMessageBus creates a MessageBus with bounded inbound and outbound
+// buffers.
 func NewMessageBus() *MessageBus {
 	return &MessageBus{
 		inbound:  make(chan *InboundMessage, 100),
@@ -80,6 +90,9 @@ func (b *MessageBus) CloseOutbound() {
 	})
 }
 
+// PublishInbound enqueues msg on the inbound channel. It returns when the
+// message is accepted or ctx is cancelled, and never blocks the caller after
+// the bus has been closed.
 func (b *MessageBus) PublishInbound(ctx context.Context, msg *InboundMessage) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -92,10 +105,14 @@ func (b *MessageBus) PublishInbound(ctx context.Context, msg *InboundMessage) {
 	}
 }
 
+// ConsumeInbound returns the receive end of the inbound channel for the
+// agent loop.
 func (b *MessageBus) ConsumeInbound(ctx context.Context) <-chan *InboundMessage {
 	return b.inbound
 }
 
+// PublishOutbound enqueues msg on the outbound channel. It returns when the
+// message is accepted or ctx is cancelled.
 func (b *MessageBus) PublishOutbound(ctx context.Context, msg *OutboundMessage) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -108,6 +125,8 @@ func (b *MessageBus) PublishOutbound(ctx context.Context, msg *OutboundMessage) 
 	}
 }
 
+// ConsumeOutbound returns the receive end of the outbound channel for
+// channel adapters.
 func (b *MessageBus) ConsumeOutbound(ctx context.Context) <-chan *OutboundMessage {
 	return b.outbound
 }

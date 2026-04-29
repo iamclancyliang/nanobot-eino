@@ -17,12 +17,15 @@ import (
 
 var logFeishu = slog.With("module", "feishu")
 
+// FeishuChannel is the Feishu (Lark) channel adapter. It receives messages
+// over a long-lived WebSocket connection and publishes replies back as card
+// messages through the Feishu Open API.
 type FeishuChannel struct {
 	client *lark.Client
 	bus    *bus.MessageBus
 	config FeishuConfig
 
-	// 消息去重缓存
+	// Message deduplication cache.
 	processedMsgs sync.Map
 
 	lifecycleMu sync.Mutex
@@ -32,6 +35,7 @@ type FeishuChannel struct {
 
 const feishuCardMarkdownMaxRunes = 3000
 
+// FeishuConfig holds the credentials and access policy for FeishuChannel.
 type FeishuConfig struct {
 	AppID             string
 	AppSecret         string
@@ -41,6 +45,7 @@ type FeishuConfig struct {
 	GroupPolicy       string
 }
 
+// NewFeishuChannel constructs a FeishuChannel bound to messageBus.
 func NewFeishuChannel(cfg FeishuConfig, messageBus *bus.MessageBus) *FeishuChannel {
 	client := lark.NewClient(cfg.AppID, cfg.AppSecret)
 	return &FeishuChannel{
@@ -50,6 +55,8 @@ func NewFeishuChannel(cfg FeishuConfig, messageBus *bus.MessageBus) *FeishuChann
 	}
 }
 
+// Start opens the Feishu WebSocket connection and begins dispatching events.
+// Calling Start while the channel is already running is a no-op.
 func (c *FeishuChannel) Start(ctx context.Context) error {
 	c.lifecycleMu.Lock()
 	if c.stopWS != nil {
@@ -62,18 +69,18 @@ func (c *FeishuChannel) Start(ctx context.Context) error {
 	c.wsDone = done
 	c.lifecycleMu.Unlock()
 
-	// 1. 定义事件处理器
+	// 1. Register the event handler.
 	handler := larkevent.NewEventDispatcher(c.config.VerificationToken, c.config.EncryptKey).
 		OnP2MessageReceiveV1(func(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
 			return c.onMessage(ctx, event)
 		})
 
-	// 2. 初始化 WebSocket 客户端
+	// 2. Initialize the WebSocket client.
 	wsClient := larkws.NewClient(c.config.AppID, c.config.AppSecret,
 		larkws.WithEventHandler(handler),
 	)
 
-	// 3. 异步启动
+	// 3. Start asynchronously.
 	go func() {
 		defer close(done)
 		err := wsClient.Start(wsCtx)
@@ -87,6 +94,8 @@ func (c *FeishuChannel) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop tears down the WebSocket connection. It blocks until the WS goroutine
+// exits or ctx is cancelled.
 func (c *FeishuChannel) Stop(ctx context.Context) error {
 	c.lifecycleMu.Lock()
 	cancel := c.stopWS
@@ -116,7 +125,7 @@ func (c *FeishuChannel) onMessage(ctx context.Context, event *larkim.P2MessageRe
 	msgID := *msg.MessageId
 	senderID := *event.Event.Sender.SenderId.OpenId
 
-	// 1. 去重逻辑
+	// 1. Drop duplicates.
 	if _, loaded := c.processedMsgs.LoadOrStore(msgID, true); loaded {
 		return nil
 	}
@@ -125,7 +134,7 @@ func (c *FeishuChannel) onMessage(ctx context.Context, event *larkim.P2MessageRe
 		return nil
 	}
 
-	// 2. 提取内容
+	// 2. Extract content.
 	content := *msg.Content
 	msgType := *msg.MessageType
 
@@ -173,10 +182,10 @@ func (c *FeishuChannel) onMessage(ctx context.Context, event *larkim.P2MessageRe
 		return nil
 	}
 
-	// 处理飞书 @ 机器人的文本前缀
+	// Strip the Feishu "@bot" mention prefix.
 	parsedContent = normalizeFeishuText(rawParsedContent)
 
-	// 3. 发布到总线
+	// 3. Publish to the bus.
 	c.bus.PublishInbound(ctx, &bus.InboundMessage{
 		Channel:  "feishu",
 		SenderID: senderID,
@@ -190,6 +199,9 @@ func (c *FeishuChannel) onMessage(ctx context.Context, event *larkim.P2MessageRe
 	return nil
 }
 
+// ListenOutbound consumes outbound messages addressed to "feishu" and sends
+// them through SendMessage. It returns when ctx is cancelled or the bus is
+// closed.
 func (c *FeishuChannel) ListenOutbound(ctx context.Context) {
 	outbound := c.bus.ConsumeOutbound(ctx)
 	for {
@@ -222,10 +234,16 @@ func isFeishuProgressMessage(metadata map[string]any) bool {
 	return isProgress
 }
 
+// Send is a convenience wrapper around SendMessage with no reply target or
+// metadata.
 func (c *FeishuChannel) Send(ctx context.Context, chatID, content string) error {
 	return c.SendMessage(ctx, chatID, content, "", nil)
 }
 
+// SendMessage delivers content to chatID as a Feishu interactive card. When
+// replyTo (or metadata["message_id"]) is set it threads the message as a
+// reply, falling back to a plain create on failure. Long content is split
+// into multiple cards.
 func (c *FeishuChannel) SendMessage(ctx context.Context, chatID, content, replyTo string, metadata map[string]any) error {
 	cardContents, ok := buildFeishuCardContents(content, metadata)
 	if !ok {
