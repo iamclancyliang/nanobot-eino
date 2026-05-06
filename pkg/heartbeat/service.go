@@ -133,12 +133,9 @@ func (s *HeartbeatService) decide(ctx context.Context, content string) (Heartbea
 			time.Now().Format(time.RFC3339), content),
 	}
 
-	// 绑定工具并调用
-	// 注意：这里简化处理，假设模型支持工具调用
-	// 在 Eino 中，通常通过 model.BindTools 绑定工具
-	// 为了简单起见，我们直接在调用时传入工具信息（如果模型支持）
-	// 或者使用 schema.ToolInfo 构造调用
-	
+	// Invoke the model with the heartbeat tool. Eino normally binds tools via
+	// model.BindTools; we pass schema.ToolInfo directly at call time and assume
+	// the model supports tool calling.
 	resp, err := s.model.Generate(ctx, []*schema.Message{systemMsg, userMsg}, model.WithTools([]*schema.ToolInfo{heartbeatTool}))
 	if err != nil {
 		return ActionSkip, "", err

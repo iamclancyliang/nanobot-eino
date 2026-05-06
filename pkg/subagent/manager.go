@@ -42,6 +42,9 @@ type taskSet struct {
 	tasks map[string]bool
 }
 
+// NewSubagentManager constructs a SubagentManager. The OnMessage hook and
+// MCP servers are stripped from toolCfg because subagents are not permitted
+// to use them.
 func NewSubagentManager(
 	chatModel emodel.ChatModel,
 	toolCfg tools.ToolConfig,

@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	// Version is the build version, overridden via -ldflags at build time.
 	Version = "dev"
 	cfgFile string
 )

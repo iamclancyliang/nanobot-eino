@@ -27,6 +27,8 @@ var defaultDenyPatterns = []string{
 	`:\(\)\s*\{.*\};\s*:`,
 }
 
+// ShellConfig is the safety policy and runtime configuration for the shell
+// tool.
 type ShellConfig struct {
 	Timeout             time.Duration
 	MaxOutput           int
@@ -37,6 +39,7 @@ type ShellConfig struct {
 	PathAppend          string
 }
 
+// ShellExecArgs are the arguments accepted by the shell_exec tool.
 type ShellExecArgs struct {
 	Command    string `json:"command" jsonschema:"description=The shell command to execute"`
 	WorkingDir string `json:"working_dir,omitempty" jsonschema:"description=Optional working directory for the command"`
@@ -45,6 +48,9 @@ type ShellExecArgs struct {
 
 const maxTimeout = 600
 
+// NewShellTool returns the "shell_exec" tool configured with cfg. Missing
+// fields receive sensible defaults (60s timeout, 10k max output, built-in
+// deny list).
 func NewShellTool(cfg ShellConfig) (tool.InvokableTool, error) {
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second

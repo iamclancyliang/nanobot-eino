@@ -35,6 +35,8 @@ type ToolConfig struct {
 	DefaultChatID  string
 }
 
+// NewTools assembles the default tool set (web search/fetch, filesystem,
+// shell, message, MCP) according to cfg.
 func NewTools(ctx context.Context, cfg ToolConfig) ([]tool.InvokableTool, error) {
 	var tools []tool.InvokableTool
 

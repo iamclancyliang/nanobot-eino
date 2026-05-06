@@ -18,14 +18,21 @@ import (
 
 var logCron = slog.With("module", "cron")
 
+// JobKind discriminates how a job's schedule is interpreted.
 type JobKind string
 
+// Supported JobKind values.
 const (
-	JobKindAt    JobKind = "at"
+	// JobKindAt fires once at a specific wall-clock time.
+	JobKindAt JobKind = "at"
+	// JobKindEvery fires on a fixed interval.
 	JobKindEvery JobKind = "every"
-	JobKindCron  JobKind = "cron"
+	// JobKindCron fires on a 6-field cron expression (with seconds).
+	JobKindCron JobKind = "cron"
 )
 
+// CronSchedule describes when a job should fire. Only the fields relevant to
+// Kind are used.
 type CronSchedule struct {
 	Kind    JobKind `json:"kind"`
 	AtMs    int64   `json:"atMs,omitempty"`
@@ -34,6 +41,7 @@ type CronSchedule struct {
 	TZ      string  `json:"tz,omitempty"`
 }
 
+// CronPayload is the user-defined work that runs when a job fires.
 type CronPayload struct {
 	Kind    string `json:"kind"` // e.g., "agent_turn"
 	Message string `json:"message"`
@@ -42,6 +50,7 @@ type CronPayload struct {
 	To      string `json:"to,omitempty"`
 }
 
+// CronJobState records the most recent execution outcome of a job.
 type CronJobState struct {
 	NextRunAtMs int64  `json:"nextRunAtMs,omitempty"`
 	LastRunAtMs int64  `json:"lastRunAtMs,omitempty"`
@@ -49,6 +58,7 @@ type CronJobState struct {
 	LastError   string `json:"lastError,omitempty"`
 }
 
+// CronJob is a persistent scheduled job.
 type CronJob struct {
 	ID             string       `json:"id"`
 	Name           string       `json:"name"`
@@ -61,11 +71,14 @@ type CronJob struct {
 	DeleteAfterRun bool         `json:"deleteAfterRun"`
 }
 
+// CronStore is the on-disk representation of all scheduled jobs.
 type CronStore struct {
 	Version int        `json:"version"`
 	Jobs    []*CronJob `json:"jobs"`
 }
 
+// CronService schedules and persists CronJob entries. It is safe for
+// concurrent use.
 type CronService struct {
 	storePath string
 	onJob     func(ctx context.Context, job *CronJob) error
@@ -76,6 +89,8 @@ type CronService struct {
 	mu        sync.RWMutex
 }
 
+// NewCronService builds a CronService persisted at storePath. onJob is
+// invoked each time a job fires.
 func NewCronService(storePath string, onJob func(ctx context.Context, job *CronJob) error) *CronService {
 	return &CronService{
 		storePath: storePath,
@@ -87,6 +102,7 @@ func NewCronService(storePath string, onJob func(ctx context.Context, job *CronJ
 	}
 }
 
+// Start loads persisted jobs and begins firing them.
 func (s *CronService) Start(ctx context.Context) error {
 	if err := s.loadStore(); err != nil {
 		return err
@@ -97,6 +113,7 @@ func (s *CronService) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop halts the scheduler and cancels any pending one-shot timers.
 func (s *CronService) Stop() {
 	s.cron.Stop()
 	s.mu.Lock()
@@ -266,6 +283,8 @@ func (s *CronService) executeJob(job *CronJob) {
 	s.saveStore()
 }
 
+// AddJob registers a new job, schedules it, and persists the store. The
+// returned job has its generated ID populated.
 func (s *CronService) AddJob(name string, schedule CronSchedule, payload CronPayload, deleteAfterRun bool) (*CronJob, error) {
 	job := &CronJob{
 		ID:             uuid.New().String()[:8],
@@ -291,6 +310,7 @@ func (s *CronService) AddJob(name string, schedule CronSchedule, payload CronPay
 	return job, nil
 }
 
+// ListJobs returns a stable, copied snapshot of all registered jobs.
 func (s *CronService) ListJobs() []*CronJob {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -308,6 +328,8 @@ func (s *CronService) ListJobs() []*CronJob {
 	return jobs
 }
 
+// RemoveJob unschedules and deletes the job with the given ID. It returns
+// true when the job existed.
 func (s *CronService) RemoveJob(id string) bool {
 	s.mu.Lock()
 	if _, ok := s.jobs[id]; !ok {

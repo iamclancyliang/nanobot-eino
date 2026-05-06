@@ -8,14 +8,18 @@ import (
 
 var logChannels = slog.With("module", "channels")
 
+// Message is the channel-level representation of an incoming user message.
 type Message struct {
 	SessionID string
 	Content   string
 	Channel   string
 }
 
+// Handler processes a Message and returns the reply content.
 type Handler func(ctx context.Context, msg Message) (string, error)
 
+// Channel is the lifecycle interface implemented by every channel adapter
+// (Feishu, web, CLI, ...).
 type Channel interface {
 	Start(ctx context.Context, handler Handler) error
 	Stop(ctx context.Context) error

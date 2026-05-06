@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+// Session is the persisted conversation state for a single session key.
 type Session struct {
 	Key              string            `json:"key"`
 	Messages         []*schema.Message `json:"messages"`
@@ -56,12 +57,16 @@ func (s *Session) Clear() {
 	s.UpdatedAt = time.Now()
 }
 
+// SessionManager is an in-memory cache backed by per-session JSONL files on
+// disk. It is safe for concurrent use.
 type SessionManager struct {
 	sessionsDir string
 	cache       map[string]*Session
 	mu          sync.RWMutex
 }
 
+// NewSessionManager creates the sessions directory if needed and returns a
+// SessionManager rooted at it.
 func NewSessionManager(sessionsDir string) (*SessionManager, error) {
 	if err := os.MkdirAll(sessionsDir, 0755); err != nil {
 		return nil, err
@@ -72,6 +77,8 @@ func NewSessionManager(sessionsDir string) (*SessionManager, error) {
 	}, nil
 }
 
+// GetOrCreate returns the session with the given key, loading it from disk
+// or creating a fresh one when missing.
 func (m *SessionManager) GetOrCreate(key string) *Session {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -144,6 +151,7 @@ func (m *SessionManager) load(key string) *Session {
 	return s
 }
 
+// Save atomically rewrites the session's JSONL file and refreshes the cache.
 func (m *SessionManager) Save(s *Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -179,6 +187,8 @@ func (m *SessionManager) Save(s *Session) error {
 	return nil
 }
 
+// Invalidate drops a session from the in-memory cache; subsequent
+// GetOrCreate calls reload it from disk.
 func (m *SessionManager) Invalidate(key string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -190,6 +200,7 @@ func (m *SessionManager) getSessionPath(key string) string {
 	return filepath.Join(m.sessionsDir, safeKey+".jsonl")
 }
 
+// ListSessions returns one entry per session file in the sessions directory.
 func (m *SessionManager) ListSessions() []map[string]any {
 	files, _ := filepath.Glob(filepath.Join(m.sessionsDir, "*.jsonl"))
 	var sessions []map[string]any

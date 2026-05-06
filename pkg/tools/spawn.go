@@ -14,11 +14,14 @@ type SubagentSpawner interface {
 	Spawn(ctx context.Context, task, label, channel, chatID, sessionKey string) (taskID string, err error)
 }
 
+// SpawnArgs are the arguments accepted by the spawn tool.
 type SpawnArgs struct {
 	Task  string `json:"task" jsonschema:"description=The task for the subagent to execute in the background"`
 	Label string `json:"label,omitempty" jsonschema:"description=Short human-readable label for the task"`
 }
 
+// NewSpawnTool returns the "spawn" tool, which dispatches a background
+// subagent through spawner.
 func NewSpawnTool(spawner SubagentSpawner) tool.InvokableTool {
 	t, _ := utils.InferTool(
 		"spawn",

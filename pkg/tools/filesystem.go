@@ -62,12 +62,15 @@ func isUnderDir(path, dir string) bool {
 // read_file
 // ---------------------------------------------------------------------------
 
+// ReadFileArgs are the arguments accepted by the read_file tool.
 type ReadFileArgs struct {
 	Path   string `json:"path" jsonschema:"description=The file path to read"`
 	Offset int    `json:"offset,omitempty" jsonschema:"description=Line number to start reading from (1-indexed, default 1)"`
 	Limit  int    `json:"limit,omitempty" jsonschema:"description=Maximum number of lines to read (default 2000)"`
 }
 
+// NewReadFileTool returns the "read_file" tool. Reads are restricted to
+// workspace, allowedDir and extraAllowedDirs.
 func NewReadFileTool(workspace, allowedDir string, extraAllowedDirs ...string) tool.InvokableTool {
 	const maxChars = 128_000
 	const defaultLimit = 2000
@@ -151,11 +154,14 @@ func NewReadFileTool(workspace, allowedDir string, extraAllowedDirs ...string) t
 // write_file
 // ---------------------------------------------------------------------------
 
+// WriteFileArgs are the arguments accepted by the write_file tool.
 type WriteFileArgs struct {
 	Path    string `json:"path" jsonschema:"description=The file path to write to"`
 	Content string `json:"content" jsonschema:"description=The content to write"`
 }
 
+// NewWriteFileTool returns the "write_file" tool. Writes are restricted to
+// workspace and allowedDir.
 func NewWriteFileTool(workspace, allowedDir string) tool.InvokableTool {
 	t, _ := utils.InferTool("write_file",
 		"Write content to a file at the given path. Creates parent directories if needed.",
@@ -182,6 +188,7 @@ func NewWriteFileTool(workspace, allowedDir string) tool.InvokableTool {
 // edit_file — with fallback matching and similarity diagnostics
 // ---------------------------------------------------------------------------
 
+// EditFileArgs are the arguments accepted by the edit_file tool.
 type EditFileArgs struct {
 	Path       string `json:"path" jsonschema:"description=The file path to edit"`
 	OldText    string `json:"old_text" jsonschema:"description=The text to find and replace"`
@@ -189,6 +196,9 @@ type EditFileArgs struct {
 	ReplaceAll bool   `json:"replace_all,omitempty" jsonschema:"description=Replace all occurrences (default false)"`
 }
 
+// NewEditFileTool returns the "edit_file" tool, which performs a substring
+// replacement with whitespace tolerance and provides similarity diagnostics
+// when the match fails.
 func NewEditFileTool(workspace, allowedDir string) tool.InvokableTool {
 	t, _ := utils.InferTool("edit_file",
 		"Edit a file by replacing old_text with new_text. Supports minor whitespace/line-ending differences. Set replace_all=true to replace every occurrence.",
@@ -399,12 +409,15 @@ var defaultIgnoreDirs = map[string]bool{
 	".ruff_cache": true, ".coverage": true, "htmlcov": true,
 }
 
+// ListDirArgs are the arguments accepted by the list_dir tool.
 type ListDirArgs struct {
 	Path       string `json:"path" jsonschema:"description=The directory path to list"`
 	Recursive  bool   `json:"recursive,omitempty" jsonschema:"description=Recursively list all files (default false)"`
 	MaxEntries int    `json:"max_entries,omitempty" jsonschema:"description=Maximum entries to return (default 200)"`
 }
 
+// NewListDirTool returns the "list_dir" tool. Common noise directories
+// (.git, node_modules, ...) are skipped automatically.
 func NewListDirTool(workspace, allowedDir string) tool.InvokableTool {
 	t, _ := utils.InferTool("list_dir",
 		"List the contents of a directory. Set recursive=true to explore nested structure. Common noise directories (.git, node_modules, __pycache__, etc.) are auto-ignored.",

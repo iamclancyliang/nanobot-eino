@@ -13,6 +13,8 @@ import (
 
 type cronContextKey struct{}
 
+// WithCronContext marks ctx as running inside a cron job execution. The
+// cron tool refuses to schedule new jobs in this state to prevent recursion.
 func WithCronContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, cronContextKey{}, true)
 }
@@ -22,6 +24,7 @@ func isInCronContext(ctx context.Context) bool {
 	return v
 }
 
+// CronArgs are the arguments accepted by the cron tool.
 type CronArgs struct {
 	Action       string `json:"action" jsonschema:"enum=add,list,remove,description=Action to perform. For remove, always call list first to decide target job IDs."`
 	Message      string `json:"message,omitempty" jsonschema:"description=Reminder message used when action=add"`
@@ -32,6 +35,8 @@ type CronArgs struct {
 	JobID        string `json:"job_id,omitempty" jsonschema:"description=Exact job ID to remove. Must come from the latest list output; free-text intent is not accepted."`
 }
 
+// NewCronTool returns the "cron" tool bound to cronService. channel/chatID
+// are the default delivery target when the agent does not provide one.
 func NewCronTool(cronService *cron.CronService, channel, chatID string) (tool.InvokableTool, error) {
 	return utils.InferTool("cron",
 		"Schedule reminders and recurring tasks. For removals, you must call list first, then remove by exact job_id from list output.",

@@ -15,6 +15,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// MCPServerConfig configures one MCP (Model Context Protocol) server
+// connection. Type is auto-detected from Command/URL when left empty.
 type MCPServerConfig struct {
 	Name         string
 	Type         string // "stdio", "sse", "streamableHttp"; auto-detected if empty
@@ -37,6 +39,9 @@ var (
 	mcpSessions   []mcpSessionEntry
 )
 
+// ConnectMCPServer dials an MCP server, registers the underlying session
+// for later cleanup, and returns the tools it advertises that match
+// cfg.EnabledTools.
 func ConnectMCPServer(ctx context.Context, cfg MCPServerConfig) ([]tool.InvokableTool, error) {
 	transportType := cfg.Type
 	if transportType == "" {

@@ -185,6 +185,7 @@ func htmlToMarkdown(htmlContent string) string {
 // Web Search — multi-provider support matching nanobot's design
 // ---------------------------------------------------------------------------
 
+// WebSearchConfig configures the web_search tool's upstream provider.
 type WebSearchConfig struct {
 	Provider   string // brave, tavily, duckduckgo, searxng, jina
 	APIKey     string
@@ -193,6 +194,7 @@ type WebSearchConfig struct {
 	Proxy      string
 }
 
+// WebSearchArgs are the arguments accepted by the web_search tool.
 type WebSearchArgs struct {
 	Query string `json:"query" jsonschema:"description=Search query"`
 	Count int    `json:"count,omitempty" jsonschema:"description=Results (1-10)"`
@@ -227,6 +229,8 @@ func formatSearchResults(query string, items []searchResult, n int) string {
 	return sb.String()
 }
 
+// NewWebSearchTool returns the "web_search" tool. Defaults: provider
+// "tavily", 5 results.
 func NewWebSearchTool(cfg WebSearchConfig) tool.InvokableTool {
 	if cfg.Provider == "" {
 		cfg.Provider = "tavily"
@@ -565,11 +569,13 @@ func searchDuckDuckGoHTML(ctx context.Context, client *http.Client, query string
 // Web Fetch — Jina Reader primary, local readability fallback
 // ---------------------------------------------------------------------------
 
+// WebFetchConfig configures the web_fetch tool.
 type WebFetchConfig struct {
 	MaxChars int
 	Proxy    string
 }
 
+// WebFetchArgs are the arguments accepted by the web_fetch tool.
 type WebFetchArgs struct {
 	URL         string `json:"url" jsonschema:"description=URL to fetch"`
 	ExtractMode string `json:"extractMode,omitempty" jsonschema:"enum=markdown,text,description=Extraction mode (default markdown)"`
@@ -587,6 +593,8 @@ type fetchResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// NewWebFetchTool returns the "web_fetch" tool. It tries Jina Reader first
+// and falls back to a local readability extractor.
 func NewWebFetchTool(cfgs ...WebFetchConfig) tool.InvokableTool {
 	var cfg WebFetchConfig
 	if len(cfgs) > 0 {
