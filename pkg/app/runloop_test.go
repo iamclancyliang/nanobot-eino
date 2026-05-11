@@ -3,11 +3,13 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cloudwego/eino/schema"
+	"github.com/wall/nanobot-eino/pkg/apperr"
 	"github.com/wall/nanobot-eino/pkg/bus"
 )
 
@@ -319,5 +321,76 @@ func TestDecodeSystemRoute_DefaultCLI(t *testing.T) {
 	channel, chatID := DecodeSystemRoute("terminal-1")
 	if channel != "cli" || chatID != "terminal-1" {
 		t.Fatalf("unexpected decode result: channel=%q chatID=%q", channel, chatID)
+	}
+}
+
+func TestRunloopPublicErrorMessage(t *testing.T) {
+	cases := []struct {
+		name    string
+		err     error
+		want    string
+		contain string
+	}{
+		{
+			name: "nil falls back to default",
+			err:  nil,
+			want: defaultAgentErrorReply,
+		},
+		{
+			name:    "503 service busy",
+			err:     errors.New(`HTTP 503: {"error":{"message":"Service is too busy."}}`),
+			contain: "繁忙",
+		},
+		{
+			name:    "429 rate limit",
+			err:     errors.New(`HTTP 429: rate limit exceeded`),
+			contain: "频率受限",
+		},
+		{
+			name:    "401 auth",
+			err:     errors.New(`HTTP 401 Unauthorized: invalid api key`),
+			contain: "鉴权失败",
+		},
+		{
+			name:    "404 model not found",
+			err:     errors.New(`HTTP 404: model_not_found`),
+			contain: "模型不存在",
+		},
+		{
+			name:    "400 surfaces detail",
+			err:     errors.New(`HTTP 400: {"error":{"message":"Tool names must be unique."}}`),
+			contain: "Tool names must be unique",
+		},
+		{
+			name:    "context canceled",
+			err:     errors.New("context canceled"),
+			contain: "已取消",
+		},
+		{
+			name:    "i/o timeout",
+			err:     errors.New("dial tcp: i/o timeout"),
+			contain: "超时",
+		},
+		{
+			name:    "unknown error with embedded api message",
+			err:     errors.New(`weird error: {"error":{"message":"something specific"}}`),
+			contain: "something specific",
+		},
+		{
+			name: "fully unknown falls back",
+			err:  errors.New("boom"),
+			want: defaultAgentErrorReply,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := apperr.PublicMessage(tc.err)
+			if tc.want != "" && got != tc.want {
+				t.Fatalf("want %q, got %q", tc.want, got)
+			}
+			if tc.contain != "" && !strings.Contains(got, tc.contain) {
+				t.Fatalf("expected reply to contain %q, got %q", tc.contain, got)
+			}
+		})
 	}
 }
