@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudwego/eino/schema"
 	langfuse "github.com/cloudwego/eino-ext/callbacks/langfuse"
+	"github.com/cloudwego/eino/schema"
+	"github.com/wall/nanobot-eino/pkg/apperr"
 	"github.com/wall/nanobot-eino/pkg/bus"
 	"github.com/wall/nanobot-eino/pkg/tools"
 )
 
-const defaultAgentErrorReply = "Sorry, I encountered an error."
+const defaultAgentErrorReply = apperr.DefaultPublicMessage
 
 var logApp = slog.With("module", "app")
 
@@ -109,17 +110,19 @@ func processMessage(
 	}
 
 	reader, err := bot.ChatStream(turnCtx, sessionID, m.Content)
-	if err != nil && isTransientError(err) {
+	err = apperr.Normalize("agent.ChatStream", err)
+	if err != nil && apperr.Retryable(err) {
 		logApp.Warn("Agent transient error, retrying in 2s", "error", err)
 		time.Sleep(2 * time.Second)
 		reader, err = bot.ChatStream(turnCtx, sessionID, m.Content)
+		err = apperr.Normalize("agent.ChatStream", err)
 	}
 	if err != nil {
 		logApp.Error("Agent error", "error", err, "session", sessionID)
 		messageBus.PublishOutbound(ctx, &bus.OutboundMessage{
 			Channel:  targetChannel,
 			ChatID:   targetChatID,
-			Content:  defaultAgentErrorReply,
+			Content:  apperr.PublicMessage(err),
 			Metadata: m.Metadata,
 		})
 		return
@@ -128,11 +131,13 @@ func processMessage(
 
 	var fullResponse string
 	streamFailed := false
+	var streamErr error
 	for {
 		chunk, recvErr := reader.Recv()
 		if recvErr != nil {
 			if recvErr != io.EOF {
 				streamFailed = true
+				streamErr = apperr.Normalize("agent.StreamRecv", recvErr)
 				logApp.Error("Stream recv error", "error", recvErr, "session", sessionID)
 			}
 			break
@@ -144,7 +149,7 @@ func processMessage(
 		messageBus.PublishOutbound(ctx, &bus.OutboundMessage{
 			Channel:  targetChannel,
 			ChatID:   targetChatID,
-			Content:  defaultAgentErrorReply,
+			Content:  apperr.PublicMessage(streamErr),
 			Metadata: m.Metadata,
 		})
 		return
@@ -176,15 +181,4 @@ func DecodeSystemRoute(chatID string) (channel string, targetChatID string) {
 		return parts[0], parts[1]
 	}
 	return "cli", chatID
-}
-
-func isTransientError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "unexpected EOF") ||
-		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "TLS handshake timeout") ||
-		strings.Contains(msg, "i/o timeout")
 }

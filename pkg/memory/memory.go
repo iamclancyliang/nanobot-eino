@@ -58,6 +58,9 @@ func NewMemoryStore(memoryDir string) (*MemoryStore, error) {
 func (s *MemoryStore) ReadLongTerm() string {
 	data, err := os.ReadFile(s.memoryFile)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			logMemory.Warn("Failed to read long-term memory", "path", s.memoryFile, "error", err)
+		}
 		return ""
 	}
 	return string(data)

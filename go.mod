@@ -4,12 +4,16 @@ go 1.25.6
 
 require (
 	github.com/charmbracelet/glamour v1.0.0
-	github.com/cloudwego/eino v0.8.5
+	github.com/cloudwego/eino v0.8.13
 	github.com/cloudwego/eino-ext/callbacks/langfuse v0.0.0-20260323112355-f061db7e8419
-	github.com/cloudwego/eino-ext/components/model/ark v0.1.65
-	github.com/cloudwego/eino-ext/components/model/gemini v0.1.29
-	github.com/cloudwego/eino-ext/components/model/ollama v0.1.8
-	github.com/cloudwego/eino-ext/components/model/openai v0.1.10
+	github.com/cloudwego/eino-ext/components/model/ark v0.1.67
+	github.com/cloudwego/eino-ext/components/model/claude v0.1.18
+	github.com/cloudwego/eino-ext/components/model/deepseek v0.1.5
+	github.com/cloudwego/eino-ext/components/model/gemini v0.1.30
+	github.com/cloudwego/eino-ext/components/model/ollama v0.1.9
+	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
+	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.10
+	github.com/cloudwego/eino-ext/components/model/qianfan v0.1.4
 	github.com/cloudwego/eino-ext/components/tool/mcp/officialmcp v0.1.0
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/google/uuid v1.6.0
@@ -60,13 +64,9 @@ require (
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/cloudwego/eino-ext/components/model/claude v0.1.16 // indirect
-	github.com/cloudwego/eino-ext/components/model/deepseek v0.1.2 // indirect
-	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.4 // indirect
-	github.com/cloudwego/eino-ext/components/model/qianfan v0.1.4 // indirect
 	github.com/cloudwego/eino-ext/libs/acl/langfuse v0.0.0-20251124083837-ce2e7e196f9f // indirect
-	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.14 // indirect
-	github.com/cohesion-org/deepseek-go v1.3.2 // indirect
+	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 // indirect
+	github.com/cohesion-org/deepseek-go v1.3.4 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/eino-contrib/jsonschema v1.0.3 // indirect
@@ -94,7 +94,7 @@ require (
 	github.com/mailru/easyjson v0.9.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.17 // indirect
-	github.com/meguminnnnnnnnn/go-openai v0.1.1 // indirect
+	github.com/meguminnnnnnnnn/go-openai v0.1.2 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
